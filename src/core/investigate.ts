@@ -1,0 +1,96 @@
+import type {
+  AssistantResponse,
+  Evidence,
+  InvestigationLimits,
+  InvestigationResult,
+  Message,
+  ToolDefinition
+} from "./types.js";
+
+export interface InvestigationProvider {
+  respond(messages: Message[], tools: ToolDefinition[]): Promise<AssistantResponse>;
+}
+
+export interface InvestigationDependencies {
+  provider: InvestigationProvider;
+  tools: ToolDefinition[];
+  systemPrompt: string;
+  limits: InvestigationLimits;
+  now?: () => number;
+}
+
+/**
+ * Bounded model/tool loop. It is intentionally provider-agnostic so fixtures
+ * and a live Docker backend can exercise the same investigation behavior.
+ */
+export async function investigate(
+  question: string,
+  dependencies: InvestigationDependencies,
+  signal: AbortSignal = new AbortController().signal
+): Promise<InvestigationResult> {
+  const startedAt = (dependencies.now ?? Date.now)();
+  const messages: Message[] = [
+    { role: "system", content: dependencies.systemPrompt },
+    { role: "user", content: question }
+  ];
+  const evidence: Evidence[] = [];
+  let modelCalls = 0;
+  let toolCalls = 0;
+
+  while (modelCalls < dependencies.limits.maxModelCalls) {
+    if (signal.aborted) return partial("cancelled");
+    if ((dependencies.now ?? Date.now)() - startedAt >= dependencies.limits.deadlineMs) {
+      return partial("deadline");
+    }
+
+    modelCalls += 1;
+    let response: AssistantResponse;
+    try {
+      response = await dependencies.provider.respond(messages, dependencies.tools);
+    } catch {
+      return partial("provider-error");
+    }
+
+    messages.push({ role: "assistant", content: response.content });
+    if (response.toolCalls.length === 0) {
+      return { answer: response.content, evidence, complete: true };
+    }
+
+    for (const call of response.toolCalls) {
+      if (toolCalls >= dependencies.limits.maxToolCalls) return partial("tool-limit");
+      const tool = dependencies.tools.find((candidate) => candidate.name === call.name);
+      toolCalls += 1;
+
+      if (!tool) {
+        messages.push({
+          role: "tool",
+          name: call.name,
+          toolCallId: call.id,
+          content: `Tool '${call.name}' is unavailable.`
+        });
+        continue;
+      }
+
+      try {
+        const result = await tool.execute(tool.parseArguments(call.arguments), signal);
+        const item: Evidence = { ...result, id: `E${evidence.length + 1}`, toolName: tool.name };
+        evidence.push(item);
+        messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown tool failure";
+        messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `Tool error: ${message}` });
+      }
+    }
+  }
+
+  return partial("model-limit");
+
+  function partial(reason: InvestigationResult["reason"]): InvestigationResult {
+    return {
+      answer: `Investigation incomplete (${reason}). Collected ${evidence.length} evidence item(s).`,
+      evidence,
+      complete: false,
+      reason
+    };
+  }
+}
