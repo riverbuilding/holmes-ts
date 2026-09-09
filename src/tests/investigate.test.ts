@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { investigate, type InvestigationProvider } from "../core/investigate.js";
-import type { AssistantResponse, Message, ToolDefinition } from "../core/types.js";
+import type { AssistantResponse, Message, ToolDefinition, ToolRegistration } from "../core/types.js";
+import { ToolRegistry } from "../tools/registry.js";
 
 test("the loop attaches evidence before accepting a final answer", async () => {
   const provider: InvestigationProvider = new ScriptedProvider([
     { content: "I will inspect the container.", toolCalls: [{ id: "call-1", name: "inspect_container", arguments: { name: "checkout" } }] },
     { content: "The container exited because APP_MODE is missing [E1].", toolCalls: [] }
   ]);
-  const tool: ToolDefinition<{ name: string }> = {
+  const tool: ToolRegistration<{ name: string }> = {
     name: "inspect_container",
     description: "Inspect a container.",
     parameters: {},
@@ -19,9 +20,11 @@ test("the loop attaches evidence before accepting a final answer", async () => {
       metadata: { resource: `container/${name}`, collectedAt: "2026-09-08T00:00:00.000Z" }
     })
   };
+  const registry = new ToolRegistry();
+  registry.register(tool);
   const result = await investigate("Why did checkout exit?", {
     provider,
-    tools: [tool],
+    registry,
     systemPrompt: "Investigate.",
     limits: {
       maxModelCalls: 3,

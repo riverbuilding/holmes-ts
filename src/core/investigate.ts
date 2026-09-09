@@ -6,6 +6,7 @@ import type {
   Message,
   ToolDefinition
 } from "./types.js";
+import type { ToolRegistry } from "../tools/registry.js";
 
 export interface InvestigationProvider {
   respond(messages: Message[], tools: ToolDefinition[]): Promise<AssistantResponse>;
@@ -13,7 +14,7 @@ export interface InvestigationProvider {
 
 export interface InvestigationDependencies {
   provider: InvestigationProvider;
-  tools: ToolDefinition[];
+  registry: ToolRegistry;
   systemPrompt: string;
   limits: InvestigationLimits;
   now?: () => number;
@@ -46,7 +47,7 @@ export async function investigate(
     modelCalls += 1;
     let response: AssistantResponse;
     try {
-      response = await dependencies.provider.respond(messages, dependencies.tools);
+      response = await dependencies.provider.respond(messages, dependencies.registry.list());
     } catch {
       return partial("provider-error");
     }
@@ -58,43 +59,26 @@ export async function investigate(
 
     for (const call of response.toolCalls) {
       if (toolCalls >= dependencies.limits.maxToolCalls) return partial("tool-limit");
-      const tool = dependencies.tools.find((candidate) => candidate.name === call.name);
       toolCalls += 1;
-
-      if (!tool) {
-        messages.push({
-          role: "tool",
-          name: call.name,
-          toolCallId: call.id,
-          content: `Tool '${call.name}' is unavailable.`
-        });
-        continue;
-      }
-
-      try {
-        const result = await tool.execute(tool.parseArguments(call.arguments), signal);
-        if (result.status === "success") {
+      const result = await dependencies.registry.dispatch(call, signal);
+      if (result.status === "success") {
           const item: Evidence = {
             id: `E${evidence.length + 1}`,
-            toolName: tool.name,
+            toolName: call.name,
             toolCallId: call.id,
             content: result.content,
             metadata: { ...result.metadata, toolCallId: call.id },
             truncation: result.truncation
           };
           evidence.push(item);
-          messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
-        } else {
-          messages.push({
-            role: "tool",
-            name: tool.name,
-            toolCallId: call.id,
-            content: `Tool error (${result.code}): ${result.message}`
-          });
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown tool failure";
-        messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `Tool error: ${message}` });
+          messages.push({ role: "tool", name: call.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
+      } else {
+        messages.push({
+          role: "tool",
+          name: call.name,
+          toolCallId: call.id,
+          content: `Tool error (${result.code}): ${result.message}`
+        });
       }
     }
   }

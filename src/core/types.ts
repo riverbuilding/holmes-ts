@@ -32,10 +32,18 @@ export interface ToolMessage {
 
 export type Message = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
-export interface ToolDefinition<TArguments = unknown> {
+/** The provider-facing, JSON-schema description of a registered tool. */
+export interface ToolDefinition {
   name: string;
   description: string;
   parameters: JsonObject;
+}
+
+/**
+ * The executable part of a tool. Registrations are accepted only by
+ * ToolRegistry; providers and the investigation loop see ToolDefinition only.
+ */
+export interface ToolRegistration<TArguments = unknown> extends ToolDefinition {
   parseArguments(input: unknown): TArguments;
   execute(arguments_: TArguments, signal: AbortSignal): Promise<ToolExecutionResult>;
 }

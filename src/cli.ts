@@ -6,6 +6,7 @@ import { renderResult } from "./output/render.js";
 import { INVESTIGATION_SYSTEM_PROMPT } from "./prompts/investigate.js";
 import { createFixtureTools, type FixtureScenario } from "./tools/fixtures.js";
 import { createDockerTools } from "./tools/docker.js";
+import { ToolRegistry } from "./tools/registry.js";
 
 interface AskArguments {
   question: string;
@@ -44,9 +45,11 @@ async function main(): Promise<void> {
   const tools = arguments_.fixture
     ? createFixtureTools(arguments_.fixture)
     : createDockerTools({ context: arguments_.dockerContext });
+  const registry = new ToolRegistry();
+  for (const tool of tools) registry.register(tool);
   const result = await investigate(arguments_.question, {
     provider: new OpenAiCompatibleProvider(config.provider),
-    tools,
+    registry,
     systemPrompt: INVESTIGATION_SYSTEM_PROMPT,
     limits: DEFAULT_LIMITS
   });
