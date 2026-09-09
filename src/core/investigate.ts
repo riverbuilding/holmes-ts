@@ -51,7 +51,7 @@ export async function investigate(
       return partial("provider-error");
     }
 
-    messages.push({ role: "assistant", content: response.content });
+    messages.push({ role: "assistant", content: response.content, toolCalls: response.toolCalls });
     if (response.toolCalls.length === 0) {
       return { answer: response.content, evidence, complete: true };
     }
@@ -73,9 +73,25 @@ export async function investigate(
 
       try {
         const result = await tool.execute(tool.parseArguments(call.arguments), signal);
-        const item: Evidence = { ...result, id: `E${evidence.length + 1}`, toolName: tool.name };
-        evidence.push(item);
-        messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
+        if (result.status === "success") {
+          const item: Evidence = {
+            id: `E${evidence.length + 1}`,
+            toolName: tool.name,
+            toolCallId: call.id,
+            content: result.content,
+            metadata: { ...result.metadata, toolCallId: call.id },
+            truncation: result.truncation
+          };
+          evidence.push(item);
+          messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
+        } else {
+          messages.push({
+            role: "tool",
+            name: tool.name,
+            toolCallId: call.id,
+            content: `Tool error (${result.code}): ${result.message}`
+          });
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown tool failure";
         messages.push({ role: "tool", name: tool.name, toolCallId: call.id, content: `Tool error: ${message}` });

@@ -42,6 +42,7 @@ Set `LLM_API_KEY` and `LLM_MODEL` before implementing or using a live model prov
 ## Documentation
 
 - [Scope and implementation plan](docs/holmesgpt-typescript-mvp-plan.md)
+- [Current-state implementation plan](docs/current-state-implementation-plan.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)

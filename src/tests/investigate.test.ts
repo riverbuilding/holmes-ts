@@ -13,13 +13,28 @@ test("the loop attaches evidence before accepting a final answer", async () => {
     description: "Inspect a container.",
     parameters: {},
     parseArguments: (input) => input as { name: string },
-    execute: async ({ name }) => ({ content: "APP_MODE is missing", resource: `container/${name}`, collectedAt: "2026-09-08T00:00:00.000Z" })
+    execute: async ({ name }) => ({
+      status: "success",
+      content: "APP_MODE is missing",
+      metadata: { resource: `container/${name}`, collectedAt: "2026-09-08T00:00:00.000Z" }
+    })
   };
   const result = await investigate("Why did checkout exit?", {
     provider,
     tools: [tool],
     systemPrompt: "Investigate.",
-    limits: { maxModelCalls: 3, maxToolCalls: 2, deadlineMs: 1_000 }
+    limits: {
+      maxModelCalls: 3,
+      maxToolCalls: 2,
+      deadlineMs: 1_000,
+      modelTimeoutMs: 100,
+      subprocessTimeoutMs: 100,
+      maxConcurrentToolCalls: 1,
+      maxLogLines: 100,
+      maxRowsPerResult: 100,
+      maxCharsPerResult: 1_000,
+      maxEvidenceChars: 2_000
+    }
   });
 
   assert.equal(result.complete, true);
