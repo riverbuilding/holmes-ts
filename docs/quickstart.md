@@ -38,7 +38,9 @@ A live investigation will target exactly one local Docker context:
 npm run dev -- ask "Why did checkout exit?" --docker-context desktop-linux --verbose
 ```
 
-Both commands require `LLM_API_KEY` and `LLM_MODEL`. The agent will remain
+Both commands require `LLM_API_KEY`. The default model is
+`openrouter/free` and the default endpoint is `https://openrouter.ai/api/v1`;
+`LLM_MODEL` and `LLM_BASE_URL` can override them. The agent will remain
 read-only: it will not execute Docker writes, `docker exec`, or remediation.
 
 ## Fixture versus live Docker

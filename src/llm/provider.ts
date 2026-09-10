@@ -12,4 +12,6 @@ export interface ProviderConfig {
   apiKey: string;
   model: string;
   baseUrl?: string;
+  /** Maximum duration of one model HTTP request, in milliseconds. */
+  modelTimeoutMs?: number;
 }

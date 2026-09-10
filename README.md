@@ -24,7 +24,9 @@ The planned command, once the provider and fixture backend are implemented, is:
 npm run dev -- ask "Why did checkout exit?" --fixture missing-env
 ```
 
-Set `LLM_API_KEY` and `LLM_MODEL` before implementing or using a live model provider.
+Set `LLM_API_KEY` to use the live provider. It defaults to OpenRouter's
+free-model router (`openrouter/free`) at `https://openrouter.ai/api/v1`.
+The credentialed adapter test is opt-in: set `LLM_LIVE_TEST=1` as well.
 
 ## Current layout
 

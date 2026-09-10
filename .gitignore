@@ -15,6 +15,7 @@ pnpm-debug.log*
 
 # Local environment files and credentials
 .env
+.env.*
 .env.local
 .env.*.local
 !.env.example
