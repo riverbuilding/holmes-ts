@@ -3,7 +3,7 @@ import { DEFAULT_LIMITS } from "./core/types.js";
 import { investigate } from "./core/investigate.js";
 import { OpenAiCompatibleProvider } from "./llm/openai-compatible-provider.js";
 import { renderResult } from "./output/render.js";
-import { INVESTIGATION_SYSTEM_PROMPT } from "./prompts/investigate.js";
+import { LOCAL_DOCKER_INVESTIGATION_SYSTEM_PROMPT } from "./prompts/local-docker-investigate.js";
 import { createFixtureTools, type FixtureScenario } from "./tools/fixtures.js";
 import { createDockerTools } from "./tools/docker.js";
 import { ToolRegistry } from "./tools/registry.js";
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   const result = await investigate(arguments_.question, {
     provider: new OpenAiCompatibleProvider(config.provider),
     registry,
-    systemPrompt: INVESTIGATION_SYSTEM_PROMPT,
+    systemPrompt: LOCAL_DOCKER_INVESTIGATION_SYSTEM_PROMPT,
     limits: DEFAULT_LIMITS
   });
   console.log(renderResult(result));

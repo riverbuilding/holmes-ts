@@ -12,20 +12,33 @@ safe development checks, not a working diagnostic demo.
 - Node.js 24 or later.
 - npm.
 
-`npm test` includes a real-model provider integration test and therefore
-requires `LLM_API_KEY`. The test itself does not require Docker. Never commit
-model credentials.
+`npm test` includes a required authenticated real-model provider integration
+test. It makes OpenAI-compatible Chat Completions requests and therefore
+requires a valid `LLM_API_KEY`; `LLM_MODEL` must name a model that supports
+function/tool calling; and `LLM_BASE_URL` must be that provider's compatible
+base URL. The defaults are `openrouter/free` and
+`https://openrouter.ai/api/v1`. Put local credentials in ignored `.env` or
+inject them through CI secrets—never commit them.
+
+The integration test sends the nine public Docker schemas, requires the model
+to call `docker_ps_all`, returns a mocked tool result, and requires a final
+model answer. It does not contact a Docker daemon or execute any Docker
+command. The same suite separately verifies provider HTTP errors, timeout, and
+caller cancellation against the selected endpoint.
 
 ## Verify the skeleton
 
 ```bash
 npm install
+export LLM_API_KEY=...              # or place it in ignored .env
+export LLM_MODEL=provider/model     # tool-calling capable
+export LLM_BASE_URL=https://provider.example/v1
 npm run check
 npm test
 ```
 
-Set `LLM_MODEL` to a tool-calling-capable model if the default provider route
-does not support tool calls.
+Use the provider's real endpoint for this acceptance test; a local HTTP mock
+does not meet the Phase 1 provider-round-trip gate.
 
 ## Planned investigation workflow
 

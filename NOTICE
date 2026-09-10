@@ -1,0 +1,13 @@
+holmes-ts
+Copyright 2026 The holmes-ts contributors
+
+This product includes material adapted from HolmesGPT:
+https://github.com/HolmesGPT/holmesgpt
+Revision: 5e983c17f30e93099c7d775167266d4cd1d586c4
+Copyright 2025 Robusta Dev LTD
+Licensed under the Apache License, Version 2.0.
+
+Adapted material includes the local-Docker tool semantics and investigation
+prompt guidance documented in docs/upstream-port-map.md. The adaptation is
+limited to the read-only local-Docker diagnostic scope and has been changed
+substantially for TypeScript.

@@ -4,11 +4,10 @@ A TypeScript port of HolmesGPT's complete local-Docker diagnostic toolset, based
 
 ## Project status
 
-This repository currently contains a compiling project skeleton. The CLI parses
-arguments and validates configuration; the investigation loop and its scripted
-test exist. The model provider plus the Docker and fixture backends are still
-unimplemented placeholders, so neither fixture nor live-Docker investigations
-run yet.
+The Phase 1 contracts and OpenAI-compatible Chat Completions provider are in
+place, including an authenticated real-model tool-call round trip. Docker and
+fixture execution remain intentionally unimplemented, so neither fixture nor
+live-Docker investigations run yet.
 
 ## Development
 
@@ -25,17 +24,19 @@ npm run dev -- ask "Why did checkout exit?" --fixture missing-env
 ```
 
 Set `LLM_API_KEY` before running `npm test`: the provider integration suite
-uses a real model. It defaults to OpenRouter's free-model router
-(`openrouter/free`) at `https://openrouter.ai/api/v1`. Set `LLM_MODEL` to a
-tool-calling-capable model if the default route does not support tool calls.
+uses a real model, sends the Docker schemas, returns a mocked tool result, and
+requires a final answer. It does not invoke Docker. It defaults to OpenRouter's
+free-model router (`openrouter/free`) at `https://openrouter.ai/api/v1`. Set
+`LLM_MODEL` to a tool-calling-capable model if the default route does not
+support tool calls.
 
 ## Current layout
 
 - `src/cli.ts` and `src/config.ts`: command parsing and environment validation.
 - `src/core/`: bounded investigation-loop contracts and implementation.
-- `src/llm/`: provider interface and an unimplemented OpenAI-compatible adapter.
+- `src/llm/`: provider interface and OpenAI-compatible Chat Completions adapter.
 - `src/tools/`: registry plus unimplemented Docker and fixture factories.
-- `src/prompts/`: the current minimal investigation prompt.
+- `src/prompts/`: attributed local-Docker investigation prompt.
 - `src/output/`: terminal-result rendering.
 - `src/tests/`: deterministic investigation-loop test.
 - `fixtures/`: reserved for fixed Docker-observation scenarios; currently empty.
