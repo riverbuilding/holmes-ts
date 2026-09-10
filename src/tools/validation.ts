@@ -37,7 +37,10 @@ export function positiveBoundedInteger(value: unknown, field: string, maximum: n
 
 export function timestamp(value: unknown, field: string): string {
   const parsed = nonFlagString(value, field, "an ISO-8601 timestamp");
-  if (Number.isNaN(Date.parse(parsed))) throw new ToolValidationError(`${field} must be an ISO-8601 timestamp.`);
+  const iso8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+  if (!iso8601.test(parsed) || Number.isNaN(Date.parse(parsed))) {
+    throw new ToolValidationError(`${field} must be an ISO-8601 timestamp.`);
+  }
   return parsed;
 }
 
