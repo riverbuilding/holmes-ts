@@ -50,9 +50,32 @@ export interface ToolRegistration<TArguments = unknown> extends ToolDefinition {
 
 /** A provider-assigned ID must be retained through the matching tool result. */
 export interface ToolCall {
+  /**
+   * The non-empty identifier assigned by the provider for this call. It is
+   * required because every subsequent tool result must refer to this ID.
+   */
   id: string;
   name: string;
   arguments: unknown;
+}
+
+/**
+ * Stable categories exposed by every model provider implementation. Error
+ * messages must be safe to display and must never contain credentials.
+ */
+export type ProviderErrorCode = "timeout" | "cancelled" | "transport" | "invalid-response" | "http";
+
+/** A normalized, non-secret failure returned by a model provider. */
+export class ProviderError extends Error {
+  public readonly name = "ProviderError";
+
+  public constructor(
+    public readonly code: ProviderErrorCode,
+    message: string,
+    public readonly options: Readonly<{ status?: number; retryable: boolean }>
+  ) {
+    super(message);
+  }
 }
 
 export interface Truncation {

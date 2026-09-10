@@ -8,7 +8,11 @@ import type { LlmProvider, ProviderConfig } from "./provider.js";
 export class OpenAiCompatibleProvider implements LlmProvider {
   public constructor(private readonly config: ProviderConfig) {}
 
-  public async respond(_messages: Message[], _tools: ToolDefinition[]): Promise<AssistantResponse> {
+  public async respond(
+    _messages: readonly Message[],
+    _tools: readonly ToolDefinition[],
+    _signal: AbortSignal
+  ): Promise<AssistantResponse> {
     void this.config;
     throw new Error("OpenAI-compatible provider is not implemented yet.");
   }

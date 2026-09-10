@@ -7,13 +7,10 @@ import type {
   ToolDefinition
 } from "./types.js";
 import type { ToolRegistry } from "../tools/registry.js";
-
-export interface InvestigationProvider {
-  respond(messages: Message[], tools: ToolDefinition[]): Promise<AssistantResponse>;
-}
+import type { LlmProvider } from "../llm/provider.js";
 
 export interface InvestigationDependencies {
-  provider: InvestigationProvider;
+  provider: LlmProvider;
   registry: ToolRegistry;
   systemPrompt: string;
   limits: InvestigationLimits;
@@ -47,7 +44,7 @@ export async function investigate(
     modelCalls += 1;
     let response: AssistantResponse;
     try {
-      response = await dependencies.provider.respond(messages, dependencies.registry.list());
+      response = await dependencies.provider.respond(messages, dependencies.registry.list(), signal);
     } catch {
       return partial("provider-error");
     }

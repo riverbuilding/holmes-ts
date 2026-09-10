@@ -4,6 +4,7 @@ import {
   DEFAULT_LIMITS,
   type AssistantMessage,
   type Evidence,
+  ProviderError,
   type ToolError,
   type ToolSuccess,
   type Truncation
@@ -50,6 +51,19 @@ test("Phase 1 contracts represent a tool-call history, success evidence, and str
   assert.equal(assistant.toolCalls?.[0]?.id, evidence.toolCallId);
   assert.equal(evidence.truncation?.retainedCharacterCount, 16_000);
   assert.equal(failure.status, "error");
+});
+
+test("provider failures have stable, non-secret public fields", () => {
+  const failure = new ProviderError("http", "Provider returned HTTP 429.", {
+    status: 429,
+    retryable: true
+  });
+
+  assert.equal(failure.name, "ProviderError");
+  assert.equal(failure.code, "http");
+  assert.equal(failure.options.status, 429);
+  assert.equal(failure.options.retryable, true);
+  assert.doesNotMatch(failure.message, /api[_ -]?key|bearer/i);
 });
 
 test("Phase 1 defaults enforce the planned investigation and evidence budgets", () => {
