@@ -131,7 +131,19 @@ export interface Evidence {
   toolCallId: string;
   content: string;
   metadata: ToolResultMetadata;
+  /** Truncation already applied by the tool that produced this observation. */
   truncation?: Truncation;
+  /** Additional bounds applied while retaining the observation as evidence. */
+  evidenceTruncations?: readonly Truncation[];
+}
+
+/** Citation references found in an answer, checked against retained evidence. */
+export interface CitationValidation {
+  hasCitations: boolean;
+  citedEvidenceIds: readonly string[];
+  validEvidenceIds: readonly string[];
+  invalidEvidenceIds: readonly string[];
+  duplicateEvidenceIds: readonly string[];
 }
 
 export interface AssistantResponse {
@@ -151,6 +163,7 @@ export interface InvestigationResult {
   evidence: Evidence[];
   complete: boolean;
   reason?: InvestigationStopReason;
+  citationValidation?: CitationValidation;
 }
 
 export interface InvestigationLimits {
