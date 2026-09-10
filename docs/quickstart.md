@@ -12,8 +12,9 @@ safe development checks, not a working diagnostic demo.
 - Node.js 24 or later.
 - npm.
 
-Docker and model credentials will be required only after the Docker backend and
-provider adapter are implemented. Never commit model credentials.
+`npm test` includes a real-model provider integration test and therefore
+requires `LLM_API_KEY`. The test itself does not require Docker. Never commit
+model credentials.
 
 ## Verify the skeleton
 
@@ -22,6 +23,9 @@ npm install
 npm run check
 npm test
 ```
+
+Set `LLM_MODEL` to a tool-calling-capable model if the default provider route
+does not support tool calls.
 
 ## Planned investigation workflow
 
