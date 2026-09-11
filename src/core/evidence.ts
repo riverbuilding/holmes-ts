@@ -32,7 +32,27 @@ export interface EvidenceRetention {
   retainedContent: string;
   omitted: boolean;
   redacted: boolean;
+  /** A truncation reported by the tool before the collector handled content. */
+  sourceTruncation?: Truncation;
   truncations: readonly Truncation[];
+}
+
+/**
+ * Produces the only provider-visible representation of a retained tool
+ * success. It deliberately consumes EvidenceRetention rather than raw tool
+ * output, so callers cannot accidentally forward unredacted content.
+ */
+export function formatEvidenceToolMessage(retention: EvidenceRetention): string {
+  const indicators = [
+    ...(retention.redacted ? ["redacted"] : []),
+    ...[retention.sourceTruncation, ...retention.truncations]
+      .filter((truncation): truncation is Truncation => truncation !== undefined)
+      .map((truncation) => `truncated: ${truncation.reason}`)
+  ];
+  const suffix = indicators.length === 0 ? "" : ` (${indicators.join("; ")})`;
+
+  if (retention.evidence === undefined) return `Observation omitted${suffix || " (no evidence budget remaining)"}.`;
+  return `[${retention.evidence.id}] ${retention.retainedContent}${suffix}`;
 }
 
 /**
@@ -138,8 +158,15 @@ export class EvidenceCollector {
     const budgeted = clipCharacters(perResult.content, this.remainingCharacters, "evidence-budget");
     const truncations = [perResult.truncation, budgeted.truncation].filter((value): value is Truncation => value !== undefined);
 
-    if (budgeted.content.length === 0 && perResult.content.length > 0) {
-      return { evidence: undefined, retainedContent: "", omitted: true, redacted: redaction.redacted, truncations };
+    if (budgeted.content.length === 0) {
+      return {
+        evidence: undefined,
+        retainedContent: "",
+        omitted: true,
+        redacted: redaction.redacted,
+        ...(input.truncation === undefined ? {} : { sourceTruncation: structuredClone(input.truncation) }),
+        truncations
+      };
     }
 
     this.remainingCharacters -= budgeted.content.length;
@@ -153,7 +180,14 @@ export class EvidenceCollector {
       ...(input.truncation === undefined ? {} : { truncation: structuredClone(input.truncation) }),
       ...(truncations.length === 0 ? {} : { evidenceTruncations: truncations })
     };
-    return { evidence, retainedContent: budgeted.content, omitted: false, redacted: redaction.redacted, truncations };
+    return {
+      evidence,
+      retainedContent: budgeted.content,
+      omitted: false,
+      redacted: redaction.redacted,
+      ...(input.truncation === undefined ? {} : { sourceTruncation: structuredClone(input.truncation) }),
+      truncations
+    };
   }
 }
 

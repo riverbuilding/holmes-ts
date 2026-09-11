@@ -5,6 +5,7 @@ import {
   canonicalize,
   clipCharacters,
   extractCitations,
+  formatEvidenceToolMessage,
   redact,
   validateCitations
 } from "../core/evidence.js";
@@ -91,6 +92,16 @@ test("collector clips each result, accounts for the total budget, and omits late
   assert.equal(third.omitted, true);
   assert.equal(third.retainedContent, "");
   assert.equal(collector.remainingEvidenceCharacters, 0);
+});
+
+test("provider-visible evidence messages disclose safe retention indicators", () => {
+  const collector = new EvidenceCollector({ maxCharsPerResult: 3, maxEvidenceChars: 3, knownSecrets: ["private-value"] });
+  const retained = collector.retain(evidenceInput("call-1", "private-value-abcdef"));
+  const omitted = collector.retain(evidenceInput("call-2", "xx"));
+
+  assert.equal(formatEvidenceToolMessage(retained), "[E1] [RE (redacted; truncated: character-limit)");
+  assert.equal(formatEvidenceToolMessage(omitted), "Observation omitted (truncated: evidence-budget).");
+  assert.doesNotMatch(formatEvidenceToolMessage(retained), /private-value/);
 });
 
 test("citation extraction and validation retain order while rejecting unknown IDs", () => {

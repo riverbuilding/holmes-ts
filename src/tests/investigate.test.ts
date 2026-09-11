@@ -277,17 +277,88 @@ test("a bounded tool batch preserves provider call order and matching IDs", asyn
   assert.match(toolMessages[3]?.content ?? "", /internal/);
 });
 
+test("successful dispatches retain only safe, budgeted evidence and provider history", async () => {
+  const secret = "test-secret-value";
+  const provider = new ScriptedProvider([
+    {
+      content: "Inspecting.",
+      toolCalls: [
+        { id: "call-first", name: "first", arguments: {} },
+        { id: "call-prefix", name: "prefix", arguments: {} },
+        { id: "call-omitted", name: "omitted", arguments: {} }
+      ]
+    },
+    { content: "Done.", toolCalls: [] }
+  ]);
+  const registry = new ToolRegistry();
+  for (const [name, content] of [
+    ["first", `${secret}-abcdef`],
+    ["prefix", "wxyz"],
+    ["omitted", "later"]
+  ] as const) {
+    registry.register({
+      name,
+      description: name,
+      parameters: {},
+      parseArguments: (input) => input,
+      execute: async () => ({ status: "success", content, metadata: { resource: name, collectedAt: "now" } })
+    });
+  }
+
+  const result = await investigate("question", dependencies(provider, registry, {
+    maxToolCalls: 3,
+    maxConcurrentToolCalls: 3,
+    maxCharsPerResult: 4,
+    maxEvidenceChars: 6,
+    knownSecrets: [secret]
+  }));
+
+  assert.deepEqual(result.evidence.map((item) => [item.id, item.toolCallId, item.content]), [
+    ["E1", "call-first", "[RED"],
+    ["E2", "call-prefix", "wx"]
+  ]);
+  assert.deepEqual(result.evidence[0]?.evidenceTruncations, [{
+    truncated: true, reason: "character-limit", originalCharacterCount: 17, retainedCharacterCount: 4
+  }]);
+  assert.deepEqual(result.evidence[1]?.evidenceTruncations, [{
+    truncated: true, reason: "evidence-budget", originalCharacterCount: 4, retainedCharacterCount: 2
+  }]);
+  const toolMessages = provider.requests[1]?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool") ?? [];
+  assert.match(toolMessages[0]?.content ?? "", /redacted.*truncated: character-limit/);
+  assert.match(toolMessages[1]?.content ?? "", /truncated: evidence-budget/);
+  assert.equal(toolMessages[2]?.content, "Observation omitted (truncated: character-limit; truncated: evidence-budget).");
+  assert.doesNotMatch(JSON.stringify(result), new RegExp(secret));
+  assert.doesNotMatch(JSON.stringify(provider.requests), new RegExp(secret));
+});
+
+test("a zero evidence budget omits successful observations without allocating IDs", async () => {
+  const provider = new ScriptedProvider([
+    { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] },
+    { content: "Done.", toolCalls: [] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => ({ status: "success", content: "observation", metadata: { resource: "inspect", collectedAt: "now" } })
+  }), { maxEvidenceChars: 0 }));
+
+  assert.deepEqual(result.evidence, []);
+  const toolMessage = provider.requests[1]?.find((message): message is Extract<Message, { role: "tool" }> => message.role === "tool");
+  assert.equal(toolMessage?.content, "Observation omitted (truncated: evidence-budget).");
+});
+
 class ScriptedProvider implements LlmProvider {
   public readonly signals: AbortSignal[] = [];
+  public readonly requests: Message[][] = [];
 
   public constructor(private readonly responses: AssistantResponse[]) {}
 
   public async respond(
-    _messages: readonly Message[],
+    messages: readonly Message[],
     _tools: readonly ToolDefinition[],
     signal: AbortSignal
   ): Promise<AssistantResponse> {
     this.signals.push(signal);
+    this.requests.push([...structuredClone(messages)]);
     const next = this.responses.shift();
     if (!next) throw new Error("No scripted response remains.");
     return next;
@@ -297,7 +368,17 @@ class ScriptedProvider implements LlmProvider {
 function dependencies(
   provider: LlmProvider,
   registry: ToolRegistry,
-  overrides: Partial<{ modelTimeoutMs: number; subprocessTimeoutMs: number; deadlineMs: number; maxToolCalls: number; maxConcurrentToolCalls: number; clock: FakeClock }> = {}
+  overrides: Partial<{
+    modelTimeoutMs: number;
+    subprocessTimeoutMs: number;
+    deadlineMs: number;
+    maxToolCalls: number;
+    maxConcurrentToolCalls: number;
+    maxCharsPerResult: number;
+    maxEvidenceChars: number;
+    knownSecrets: readonly string[];
+    clock: FakeClock;
+  }> = {}
 ) {
   return {
     provider,
@@ -312,9 +393,10 @@ function dependencies(
       maxConcurrentToolCalls: overrides.maxConcurrentToolCalls ?? 1,
       maxLogLines: 100,
       maxRowsPerResult: 100,
-      maxCharsPerResult: 1_000,
-      maxEvidenceChars: 2_000
+      maxCharsPerResult: overrides.maxCharsPerResult ?? 1_000,
+      maxEvidenceChars: overrides.maxEvidenceChars ?? 2_000
     },
+    knownSecrets: overrides.knownSecrets,
     now: overrides.clock ? () => overrides.clock!.now : undefined,
     timers: overrides.clock
   };

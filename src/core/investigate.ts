@@ -8,6 +8,7 @@ import type {
   ToolDefinition,
   ToolExecutionResult
 } from "./types.js";
+import { EvidenceCollector, formatEvidenceToolMessage } from "./evidence.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { LlmProvider } from "../llm/provider.js";
 
@@ -16,6 +17,8 @@ export interface InvestigationDependencies {
   registry: ToolRegistry;
   systemPrompt: string;
   limits: InvestigationLimits;
+  /** Explicit values to redact from successful tool content. */
+  knownSecrets?: Iterable<string>;
   now?: () => number;
   timers?: InvestigationTimers;
 }
@@ -58,6 +61,11 @@ export async function investigate(
     { role: "user", content: question }
   ];
   const evidence: Evidence[] = [];
+  const evidenceCollector = new EvidenceCollector({
+    maxCharsPerResult: dependencies.limits.maxCharsPerResult,
+    maxEvidenceChars: dependencies.limits.maxEvidenceChars,
+    knownSecrets: dependencies.knownSecrets
+  });
   let modelCalls = 0;
   let toolCalls = 0;
 
@@ -119,16 +127,20 @@ export async function investigate(
         }
         const result = toolOutcome.value;
         if (result.status === "success") {
-          const item: Evidence = {
-            id: `E${evidence.length + 1}`,
+          const retained = evidenceCollector.retain({
             toolName: call.name,
             toolCallId: call.id,
             content: result.content,
-            metadata: { ...result.metadata, toolCallId: call.id },
+            metadata: result.metadata,
             truncation: result.truncation
-          };
-          evidence.push(item);
-          messages.push({ role: "tool", name: call.name, toolCallId: call.id, content: `[${item.id}] ${item.content}` });
+          });
+          if (retained.evidence !== undefined) evidence.push(retained.evidence);
+          messages.push({
+            role: "tool",
+            name: call.name,
+            toolCallId: call.id,
+            content: formatEvidenceToolMessage(retained)
+          });
         } else {
           messages.push({
             role: "tool",
