@@ -3,6 +3,7 @@ import type {
   Evidence,
   InvestigationLimits,
   InvestigationResult,
+  InvestigationStopReason,
   Message,
   ToolCall,
   ToolDefinition,
@@ -69,11 +70,15 @@ export async function investigate(
   const duplicateOutcomes = new DuplicateOutcomeTracker();
   let modelCalls = 0;
   let toolCalls = 0;
+  // Keep one call available for a tool-free final answer. This also means a
+  // configuration of one model call can synthesize from the initial prompt,
+  // but cannot select tools.
+  const normalModelCallLimit = Math.max(0, dependencies.limits.maxModelCalls - 1);
 
   try {
-    while (modelCalls < dependencies.limits.maxModelCalls) {
+    while (modelCalls < normalModelCallLimit) {
       const stopped = stopReason();
-      if (stopped) return partial(stopped);
+      if (stopped) return synthesizeOrPartial(stopped);
 
       modelCalls += 1;
       const modelOutcome = await runChild(
@@ -81,14 +86,14 @@ export async function investigate(
         dependencies.limits.modelTimeoutMs
       );
       if (modelOutcome.state === "aborted") {
-        return partial(modelOutcome.cause === "caller" ? "cancelled" : modelOutcome.cause === "deadline" ? "deadline" : "provider-error");
+        return synthesizeOrPartial(modelOutcome.cause === "caller" ? "cancelled" : modelOutcome.cause === "deadline" ? "deadline" : "provider-error");
       }
-      if (modelOutcome.state === "failed") return partial("provider-error");
+      if (modelOutcome.state === "failed") return synthesizeOrPartial("provider-error");
       const response: AssistantResponse = modelOutcome.value;
 
       // Do not let a completion that raced cancellation update the transcript.
       const afterModel = stopReason();
-      if (afterModel) return partial(afterModel);
+      if (afterModel) return synthesizeOrPartial(afterModel);
       messages.push({ role: "assistant", content: response.content, toolCalls: response.toolCalls });
       if (response.toolCalls.length === 0) {
         return { answer: response.content, evidence, complete: true };
@@ -102,13 +107,13 @@ export async function investigate(
       // Workers can finish in any order. Commit only after the whole started
       // batch has settled, and always in the provider's original call order.
       const afterBatch = stopReason();
-      if (afterBatch) return partial(afterBatch);
+      if (afterBatch) return synthesizeOrPartial(afterBatch);
       for (let index = 0; index < calls.length; index += 1) {
         const call = calls[index]!;
         const toolOutcome = toolOutcomes[index]!;
         if (toolOutcome.state === "aborted") {
-          if (toolOutcome.cause === "caller") return partial("cancelled");
-          if (toolOutcome.cause === "deadline") return partial("deadline");
+          if (toolOutcome.cause === "caller") return synthesizeOrPartial("cancelled");
+          if (toolOutcome.cause === "deadline") return synthesizeOrPartial("deadline");
           messages.push({
             role: "tool",
             name: call.name,
@@ -152,10 +157,21 @@ export async function investigate(
           });
         }
       }
-      if (reachedToolLimit) return partial("tool-limit");
+      // Complete the transcript for calls that could not be started. A final
+      // synthesis provider must never receive unmatched assistant tool calls.
+      for (const call of response.toolCalls.slice(calls.length)) {
+        messages.push({
+          role: "tool",
+          name: call.name,
+          toolCallId: call.id,
+          content: "Tool error (tool-limit): Tool execution was not started because the tool-call limit was reached."
+        });
+      }
+      if (reachedToolLimit) return synthesizeOrPartial("tool-limit");
+      if (calls.length > 0 && toolOutcomes.every(isDuplicateOutcome)) return synthesizeOrPartial("duplicate-only");
     }
 
-    return partial("model-limit");
+    return synthesizeOrPartial("model-limit");
   } finally {
     timers.clearTimeout(deadlineTimer);
   }
@@ -241,11 +257,35 @@ export async function investigate(
   }
 
   function partial(reason: InvestigationResult["reason"]): InvestigationResult {
+    const evidenceIds = evidence.map((item) => item.id);
     return {
-      answer: `Investigation incomplete (${reason}). Collected ${evidence.length} evidence item(s).`,
+      answer: `Investigation incomplete (${reason}). Collected ${evidence.length} evidence item(s): ${evidenceIds.length === 0 ? "none" : evidenceIds.join(", ")}.`,
       evidence,
       complete: false,
       reason
     };
+  }
+
+  function isDuplicateOutcome(outcome: OperationOutcome<ToolExecutionResult>): boolean {
+    return outcome.state === "completed"
+      && outcome.value.status === "error"
+      && outcome.value.code === "duplicate";
+  }
+
+  async function synthesizeOrPartial(reason: InvestigationStopReason): Promise<InvestigationResult> {
+    // Cancellation and deadline expiry make the reserved call unusable. Do not
+    // replace the stop that brought us here with a later synthesis failure.
+    if (modelCalls >= dependencies.limits.maxModelCalls || stopReason() !== undefined) return partial(reason);
+
+    modelCalls += 1;
+    const synthesis = await runChild(
+      (childSignal) => dependencies.provider.respond(messages, [], childSignal),
+      dependencies.limits.modelTimeoutMs
+    );
+    if (synthesis.state !== "completed" || synthesis.value.toolCalls.length !== 0) return partial(reason);
+
+    // A completed response that raced a stop is not safe to present as final.
+    if (stopReason() !== undefined) return partial(reason);
+    return { answer: synthesis.value.content, evidence, complete: true };
   }
 }

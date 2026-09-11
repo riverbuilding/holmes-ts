@@ -155,6 +155,7 @@ export type InvestigationStopReason =
   | "deadline"
   | "tool-limit"
   | "model-limit"
+  | "duplicate-only"
   | "cancelled"
   | "provider-error";
 

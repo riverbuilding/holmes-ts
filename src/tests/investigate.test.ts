@@ -78,6 +78,8 @@ test("caller cancellation propagates to the active derived child signal", async 
   const result = await pending;
 
   assert.equal(result.reason, "cancelled");
+  assert.equal(result.complete, false);
+  assert.match(result.answer, /Investigation incomplete \(cancelled\)\. Collected 0 evidence item\(s\): none\./);
   assert.notEqual(modelSignal, caller.signal);
   assert.notEqual(toolSignal, caller.signal);
   assert.equal(toolSignal?.aborted, true);
@@ -86,11 +88,16 @@ test("caller cancellation propagates to the active derived child signal", async 
 test("model timeout aborts only its child signal", async () => {
   const clock = new FakeClock();
   let modelSignal: AbortSignal | undefined;
+  let requests = 0;
   const caller = new AbortController();
   const provider: LlmProvider = {
     respond: async (_messages, _tools, signal) => {
-      modelSignal = signal;
-      return await new Promise(() => undefined);
+      requests += 1;
+      if (requests === 1) {
+        modelSignal = signal;
+        return await new Promise(() => undefined);
+      }
+      return { content: "Synthesis after timeout.", toolCalls: [] };
     }
   };
   const pending = investigate("question", dependencies(provider, new ToolRegistry(), { modelTimeoutMs: 10, deadlineMs: 50, clock }), caller.signal);
@@ -99,9 +106,125 @@ test("model timeout aborts only its child signal", async () => {
   clock.advance(10);
   const result = await pending;
 
-  assert.equal(result.reason, "provider-error");
+  assert.equal(result.complete, true);
+  assert.equal(result.answer, "Synthesis after timeout.");
   assert.equal(modelSignal?.aborted, true);
   assert.equal(caller.signal.aborted, false);
+});
+
+test("reserves the last model call for empty-tools synthesis with ordered retained history", async () => {
+  const provider = new ScriptedProvider([
+    {
+      content: "Inspecting.",
+      toolCalls: [
+        { id: "call-first", name: "first", arguments: {} },
+        { id: "call-second", name: "second", arguments: {} }
+      ]
+    },
+    { content: "Synthesis [E1] [E2].", toolCalls: [] }
+  ]);
+  const registry = new ToolRegistry();
+  for (const name of ["first", "second"]) {
+    registry.register({
+      name,
+      description: name,
+      parameters: {},
+      parseArguments: (input) => input,
+      execute: async () => ({ status: "success", content: `${name} observation`, metadata: { resource: name, collectedAt: "now" } })
+    });
+  }
+
+  const result = await investigate("question", dependencies(provider, registry, { maxModelCalls: 2, maxToolCalls: 2, maxConcurrentToolCalls: 2 }));
+
+  assert.equal(result.complete, true);
+  assert.equal(provider.requests.length, 2);
+  assert.deepEqual(provider.requests[1]?.map((message) => message.role), ["system", "user", "assistant", "tool", "tool"]);
+  assert.deepEqual(provider.requests[1]?.filter((message) => message.role === "tool").map((message) => (message as Extract<Message, { role: "tool" }>).toolCallId), ["call-first", "call-second"]);
+  assert.deepEqual(provider.tools, [2, 0]);
+  assert.deepEqual(result.evidence.map((item) => item.id), ["E1", "E2"]);
+});
+
+test("tools requested by final synthesis are never dispatched and yield a deterministic partial", async () => {
+  let executions = 0;
+  const provider = new ScriptedProvider([
+    { content: "I should not be able to run this.", toolCalls: [{ id: "synthesis-call", name: "inspect", arguments: {} }] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => {
+      executions += 1;
+      return { status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } };
+    }
+  }), { maxModelCalls: 1 }));
+
+  assert.equal(executions, 0);
+  assert.equal(result.complete, false);
+  assert.equal(result.reason, "model-limit");
+  assert.match(result.answer, /Collected 0 evidence item\(s\): none\./);
+  assert.deepEqual(provider.tools, [0]);
+});
+
+test("failed synthesis preserves the originating terminal reason", async () => {
+  const cases: readonly {
+    name: string;
+    provider: LlmProvider;
+    registry: ToolRegistry;
+    overrides: Partial<{ maxModelCalls: number; maxToolCalls: number }>;
+    reason: "model-limit" | "tool-limit" | "provider-error";
+  }[] = [
+    {
+      name: "model limit",
+      provider: { respond: async () => { throw new Error("synthesis failed"); } },
+      registry: new ToolRegistry(),
+      overrides: { maxModelCalls: 1 },
+      reason: "model-limit"
+    },
+    {
+      name: "tool limit",
+      provider: new ScriptedProvider([
+        { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] }
+      ]),
+      registry: registryWithTool({ name: "inspect", execute: async () => ({ status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } }) }),
+      overrides: { maxModelCalls: 2, maxToolCalls: 0 },
+      reason: "tool-limit"
+    },
+    {
+      name: "provider failure",
+      provider: { respond: async () => { throw new Error("provider failed"); } },
+      registry: new ToolRegistry(),
+      overrides: { maxModelCalls: 2 },
+      reason: "provider-error"
+    }
+  ];
+
+  for (const scenario of cases) {
+    const result = await investigate("question", dependencies(scenario.provider, scenario.registry, scenario.overrides));
+    assert.equal(result.complete, false, scenario.name);
+    assert.equal(result.reason, scenario.reason, scenario.name);
+    assert.match(result.answer, new RegExp(`Investigation incomplete \\(${scenario.reason}\\)\\.`), scenario.name);
+  }
+});
+
+test("a duplicate-only turn synthesizes once and preserves its stop reason on failure", async () => {
+  const provider = new ScriptedProvider([
+    { content: "first", toolCalls: [{ id: "call-1", name: "inspect", arguments: { target: "api" } }] },
+    { content: "second", toolCalls: [{ id: "call-2", name: "inspect", arguments: { target: "api" } }] },
+    { content: "third", toolCalls: [{ id: "call-3", name: "inspect", arguments: { target: "api" } }] }
+  ]);
+  let executions = 0;
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => {
+      executions += 1;
+      return { status: "success", content: "unchanged", metadata: { resource: "inspect", collectedAt: "now" } };
+    }
+  }), { maxModelCalls: 4, maxToolCalls: 3 }));
+
+  assert.equal(executions, 2);
+  assert.equal(provider.requests.length, 4);
+  assert.deepEqual(provider.tools, [1, 1, 1, 0]);
+  assert.equal(result.complete, false);
+  assert.equal(result.reason, "duplicate-only");
 });
 
 test("tool timeout aborts only its child and allows the next model call", async () => {
@@ -150,6 +273,8 @@ test("the global deadline wins when it is earlier than a model timeout", async (
   const result = await pending;
 
   assert.equal(result.reason, "deadline");
+  assert.equal(result.complete, false);
+  assert.match(result.answer, /Investigation incomplete \(deadline\)\. Collected 0 evidence item\(s\): none\./);
   assert.equal(modelSignal?.aborted, true);
 });
 
@@ -423,6 +548,7 @@ test("completed tool errors are safely tracked and later receive duplicate tool 
 class ScriptedProvider implements LlmProvider {
   public readonly signals: AbortSignal[] = [];
   public readonly requests: Message[][] = [];
+  public readonly tools: number[] = [];
 
   public constructor(private readonly responses: AssistantResponse[]) {}
 
@@ -433,6 +559,7 @@ class ScriptedProvider implements LlmProvider {
   ): Promise<AssistantResponse> {
     this.signals.push(signal);
     this.requests.push([...structuredClone(messages)]);
+    this.tools.push(_tools.length);
     const next = this.responses.shift();
     if (!next) throw new Error("No scripted response remains.");
     return next;
