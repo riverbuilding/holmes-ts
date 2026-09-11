@@ -144,6 +144,8 @@ export interface CitationValidation {
   validEvidenceIds: readonly string[];
   invalidEvidenceIds: readonly string[];
   duplicateEvidenceIds: readonly string[];
+  /** Citation-shaped bracket tokens that do not use the E1, E2, ... grammar. */
+  malformedCitationTokens: readonly string[];
 }
 
 export interface AssistantResponse {
@@ -164,7 +166,8 @@ export interface InvestigationResult {
   evidence: Evidence[];
   complete: boolean;
   reason?: InvestigationStopReason;
-  citationValidation?: CitationValidation;
+  /** Validation of citations in `answer` against this result's retained evidence. */
+  citationValidation: CitationValidation;
 }
 
 export interface InvestigationLimits {

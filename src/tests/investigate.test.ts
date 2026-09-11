@@ -51,6 +51,67 @@ test("the loop attaches evidence before accepting a final answer", async () => {
   assert.ok(scriptedProvider.signals.every((childSignal) => !childSignal.aborted));
 });
 
+test("results expose deterministic citation validation against retained, not merely observed, evidence", async () => {
+  const provider = new ScriptedProvider([
+    {
+      content: "Inspecting.",
+      toolCalls: [
+        { id: "call-1", name: "first", arguments: {} },
+        { id: "call-2", name: "second", arguments: {} },
+        { id: "call-3", name: "omitted", arguments: {} }
+      ]
+    },
+    { content: "Supported [E2, E1]. Repeated [E2]. Omitted [E3]. Mixed [E1, E9]. Bad [E0].", toolCalls: [] }
+  ]);
+  const registry = new ToolRegistry();
+  for (const name of ["first", "second", "omitted"]) {
+    registry.register({
+      name,
+      description: name,
+      parameters: {},
+      parseArguments: (input) => input,
+      execute: async () => ({ status: "success", content: name, metadata: { resource: name, collectedAt: "now" } })
+    });
+  }
+
+  const result = await investigate("question", dependencies(provider, registry, {
+    maxToolCalls: 3,
+    maxConcurrentToolCalls: 3,
+    maxEvidenceChars: 11
+  }));
+
+  assert.deepEqual(result.evidence.map((item) => item.id), ["E1", "E2"]);
+  assert.deepEqual(result.citationValidation, {
+    hasCitations: true,
+    citedEvidenceIds: ["E2", "E1", "E2", "E3", "E1", "E9"],
+    validEvidenceIds: ["E2", "E1"],
+    invalidEvidenceIds: ["E3", "E9"],
+    duplicateEvidenceIds: ["E2", "E1"],
+    malformedCitationTokens: ["E0"]
+  });
+});
+
+test("partial-path synthesis validates citations using only retained evidence", async () => {
+  const provider = new ScriptedProvider([
+    {
+      content: "Inspecting.",
+      toolCalls: [
+        { id: "call-1", name: "inspect", arguments: {} },
+        { id: "call-2", name: "inspect", arguments: {} }
+      ]
+    },
+    { content: "Partial synthesis [E1] and [E2].", toolCalls: [] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => ({ status: "success", content: "retained", metadata: { resource: "inspect", collectedAt: "now" } })
+  }), { maxModelCalls: 2, maxToolCalls: 1 }));
+
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.citationValidation.validEvidenceIds, ["E1"]);
+  assert.deepEqual(result.citationValidation.invalidEvidenceIds, ["E2"]);
+});
+
 test("caller cancellation propagates to the active derived child signal", async () => {
   let modelSignal: AbortSignal | undefined;
   let toolSignal: AbortSignal | undefined;

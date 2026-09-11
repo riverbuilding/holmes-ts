@@ -5,6 +5,7 @@ import {
   canonicalize,
   clipCharacters,
   extractCitations,
+  extractMalformedCitationTokens,
   formatEvidenceToolMessage,
   redact,
   validateCitations
@@ -113,14 +114,31 @@ test("citation extraction and validation retain order while rejecting unknown ID
     citedEvidenceIds: ["E2", "E1", "E2", "E9"],
     validEvidenceIds: ["E2", "E1"],
     invalidEvidenceIds: ["E9"],
-    duplicateEvidenceIds: ["E2"]
+    duplicateEvidenceIds: ["E2"],
+    malformedCitationTokens: []
   });
   assert.deepEqual(validateCitations("No citations.", ["E1"]), {
     hasCitations: false,
     citedEvidenceIds: [],
     validEvidenceIds: [],
     invalidEvidenceIds: [],
-    duplicateEvidenceIds: []
+    duplicateEvidenceIds: [],
+    malformedCitationTokens: []
+  });
+});
+
+test("citation validation exposes malformed evidence-shaped tokens without treating prose brackets as citations", () => {
+  const answer = "Good [E1], malformed [E0], mixed [E2, Ebad, ], prose [not evidence].";
+
+  assert.deepEqual(extractCitations(answer), ["E1", "E2"]);
+  assert.deepEqual(extractMalformedCitationTokens(answer), ["E0", "Ebad", ""]);
+  assert.deepEqual(validateCitations(answer, ["E1"]), {
+    hasCitations: true,
+    citedEvidenceIds: ["E1", "E2"],
+    validEvidenceIds: ["E1"],
+    invalidEvidenceIds: ["E2"],
+    duplicateEvidenceIds: [],
+    malformedCitationTokens: ["E0", "Ebad", ""]
   });
 });
 

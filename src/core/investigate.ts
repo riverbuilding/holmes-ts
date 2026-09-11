@@ -9,7 +9,7 @@ import type {
   ToolDefinition,
   ToolExecutionResult
 } from "./types.js";
-import { DuplicateOutcomeTracker, EvidenceCollector, formatEvidenceToolMessage } from "./evidence.js";
+import { DuplicateOutcomeTracker, EvidenceCollector, formatEvidenceToolMessage, validateCitations } from "./evidence.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { LlmProvider } from "../llm/provider.js";
 
@@ -96,7 +96,7 @@ export async function investigate(
       if (afterModel) return synthesizeOrPartial(afterModel);
       messages.push({ role: "assistant", content: response.content, toolCalls: response.toolCalls });
       if (response.toolCalls.length === 0) {
-        return { answer: response.content, evidence, complete: true };
+        return result(response.content, true);
       }
 
       const remainingToolCalls = dependencies.limits.maxToolCalls - toolCalls;
@@ -258,12 +258,11 @@ export async function investigate(
 
   function partial(reason: InvestigationResult["reason"]): InvestigationResult {
     const evidenceIds = evidence.map((item) => item.id);
-    return {
-      answer: `Investigation incomplete (${reason}). Collected ${evidence.length} evidence item(s): ${evidenceIds.length === 0 ? "none" : evidenceIds.join(", ")}.`,
-      evidence,
-      complete: false,
+    return result(
+      `Investigation incomplete (${reason}). Collected ${evidence.length} evidence item(s): ${evidenceIds.length === 0 ? "none" : evidenceIds.join(", ")}.`,
+      false,
       reason
-    };
+    );
   }
 
   function isDuplicateOutcome(outcome: OperationOutcome<ToolExecutionResult>): boolean {
@@ -286,6 +285,17 @@ export async function investigate(
 
     // A completed response that raced a stop is not safe to present as final.
     if (stopReason() !== undefined) return partial(reason);
-    return { answer: synthesis.value.content, evidence, complete: true };
+    return result(synthesis.value.content, true);
+  }
+
+  /** Builds every externally visible result from the retained-evidence authority. */
+  function result(answer: string, complete: boolean, reason?: InvestigationStopReason): InvestigationResult {
+    return {
+      answer,
+      evidence,
+      complete,
+      ...(reason === undefined ? {} : { reason }),
+      citationValidation: validateCitations(answer, evidence.map((item) => item.id))
+    };
   }
 }

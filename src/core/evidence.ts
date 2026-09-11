@@ -146,20 +146,29 @@ export function clipCharacters(content: string, maxCharacters: number, reason: T
   };
 }
 
+interface ParsedCitations {
+  citations: string[];
+  malformedTokens: string[];
+}
+
 /** Extracts syntactically valid bracketed evidence references in their text order. */
 export function extractCitations(answer: string): string[] {
-  const citations: string[] = [];
-  for (const match of answer.matchAll(/\[([^\]]+)\]/g)) {
-    const ids = match[1]!.split(",").map((id) => id.trim());
-    if (ids.length > 0 && ids.every((id) => /^E[1-9]\d*$/.test(id))) citations.push(...ids);
-  }
-  return citations;
+  return parseCitations(answer).citations;
+}
+
+/**
+ * Identifies bracket tokens that look like evidence citations but do not use
+ * the public `E1`, `E2`, ... identifier grammar. Ordinary brackets are not
+ * citations and are intentionally ignored.
+ */
+export function extractMalformedCitationTokens(answer: string): string[] {
+  return parseCitations(answer).malformedTokens;
 }
 
 /** Checks cited IDs against the retained-evidence authority without rewriting the answer. */
 export function validateCitations(answer: string, knownEvidenceIds: Iterable<string>): CitationValidation {
   const known = new Set(knownEvidenceIds);
-  const citedEvidenceIds = extractCitations(answer);
+  const { citations: citedEvidenceIds, malformedTokens: malformedCitationTokens } = parseCitations(answer);
   const seen = new Set<string>();
   const duplicateEvidenceIds: string[] = [];
   const validEvidenceIds: string[] = [];
@@ -180,8 +189,27 @@ export function validateCitations(answer: string, knownEvidenceIds: Iterable<str
     citedEvidenceIds,
     validEvidenceIds,
     invalidEvidenceIds,
-    duplicateEvidenceIds
+    duplicateEvidenceIds,
+    malformedCitationTokens
   };
+}
+
+function parseCitations(answer: string): ParsedCitations {
+  const citations: string[] = [];
+  const malformedTokens: string[] = [];
+  for (const match of answer.matchAll(/\[([^\]]*)\]/g)) {
+    const tokens = match[1]!.split(",").map((token) => token.trim());
+    // Bracketed prose (for example, "[not evidence]") is not a citation.
+    // Once a group contains an evidence-shaped token, report every malformed
+    // member so mixed groups remain visible instead of being partly ignored.
+    const citationShaped = tokens.some((token) => /^e/i.test(token));
+    if (!citationShaped) continue;
+    for (const token of tokens) {
+      if (/^E[1-9]\d*$/.test(token)) citations.push(token);
+      else malformedTokens.push(token);
+    }
+  }
+  return { citations, malformedTokens };
 }
 
 /**
