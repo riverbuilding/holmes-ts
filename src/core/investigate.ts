@@ -4,7 +4,9 @@ import type {
   InvestigationLimits,
   InvestigationResult,
   Message,
-  ToolDefinition
+  ToolCall,
+  ToolDefinition,
+  ToolExecutionResult
 } from "./types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { LlmProvider } from "../llm/provider.js";
@@ -83,15 +85,18 @@ export async function investigate(
         return { answer: response.content, evidence, complete: true };
       }
 
-      for (const call of response.toolCalls) {
-        const beforeTool = stopReason();
-        if (beforeTool) return partial(beforeTool);
-        if (toolCalls >= dependencies.limits.maxToolCalls) return partial("tool-limit");
-        toolCalls += 1;
-        const toolOutcome = await runChild(
-          (childSignal) => dependencies.registry.dispatch(call, childSignal),
-          dependencies.limits.subprocessTimeoutMs
-        );
+      const remainingToolCalls = dependencies.limits.maxToolCalls - toolCalls;
+      const calls = response.toolCalls.slice(0, Math.max(0, remainingToolCalls));
+      const reachedToolLimit = calls.length < response.toolCalls.length;
+      const toolOutcomes = await dispatchBatch(calls);
+
+      // Workers can finish in any order. Commit only after the whole started
+      // batch has settled, and always in the provider's original call order.
+      const afterBatch = stopReason();
+      if (afterBatch) return partial(afterBatch);
+      for (let index = 0; index < calls.length; index += 1) {
+        const call = calls[index]!;
+        const toolOutcome = toolOutcomes[index]!;
         if (toolOutcome.state === "aborted") {
           if (toolOutcome.cause === "caller") return partial("cancelled");
           if (toolOutcome.cause === "deadline") return partial("deadline");
@@ -113,8 +118,6 @@ export async function investigate(
           continue;
         }
         const result = toolOutcome.value;
-        const afterTool = stopReason();
-        if (afterTool) return partial(afterTool);
         if (result.status === "success") {
           const item: Evidence = {
             id: `E${evidence.length + 1}`,
@@ -135,6 +138,7 @@ export async function investigate(
           });
         }
       }
+      if (reachedToolLimit) return partial("tool-limit");
     }
 
     return partial("model-limit");
@@ -191,6 +195,30 @@ export async function investigate(
       signal.removeEventListener("abort", onCallerAbort);
       deadlineController.signal.removeEventListener("abort", onDeadlineAbort);
     }
+  }
+
+  async function dispatchBatch(calls: readonly ToolCall[]): Promise<OperationOutcome<ToolExecutionResult>[]> {
+    const outcomes: OperationOutcome<ToolExecutionResult>[] = new Array(calls.length);
+    const workerCount = Math.min(calls.length, Math.max(1, Math.floor(dependencies.limits.maxConcurrentToolCalls)));
+    let nextIndex = 0;
+
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        if (stopReason()) return;
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= calls.length) return;
+        const call = calls[index]!;
+        toolCalls += 1;
+        outcomes[index] = await runChild(
+          (childSignal) => dependencies.registry.dispatch(call, childSignal),
+          dependencies.limits.subprocessTimeoutMs
+        );
+      }
+    };
+
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+    return outcomes;
   }
 
   function partial(reason: InvestigationResult["reason"]): InvestigationResult {

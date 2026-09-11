@@ -181,6 +181,102 @@ test("a late tool completion cannot add evidence after the deadline", async () =
   assert.equal(provider.signals.length, 1);
 });
 
+test("a bounded tool batch preserves provider call order and matching IDs", async () => {
+  const deferred = new Map<string, () => void>();
+  const started = new Map<string, () => void>();
+  const startedPromises = ["success-first", "executor-error", "success-last"].map((name) =>
+    new Promise<void>((resolve) => started.set(name, resolve))
+  );
+  let active = 0;
+  let peakActive = 0;
+  const wait = (name: string) => new Promise<void>((resolve) => {
+    deferred.set(name, () => resolve());
+    active += 1;
+    peakActive = Math.max(peakActive, active);
+    started.get(name)?.();
+  });
+  let secondRequest: readonly Message[] | undefined;
+  let requests = 0;
+  const provider: LlmProvider = {
+    respond: async (messages) => {
+      requests += 1;
+      if (requests === 2) {
+        secondRequest = messages;
+        return { content: "Done.", toolCalls: [] };
+      }
+      return {
+        content: "Inspecting.",
+        toolCalls: [
+          { id: "call-success-first", name: "success-first", arguments: {} },
+          { id: "call-invalid", name: "invalid", arguments: {} },
+          { id: "call-unknown", name: "unknown", arguments: {} },
+          { id: "call-executor-error", name: "executor-error", arguments: {} },
+          { id: "call-success-last", name: "success-last", arguments: {} }
+        ]
+      };
+    }
+  };
+  const registry = new ToolRegistry();
+  for (const name of ["success-first", "success-last"]) {
+    registry.register({
+      name,
+      description: name,
+      parameters: {},
+      parseArguments: (input) => input,
+      execute: async () => {
+        await wait(name);
+        active -= 1;
+        return { status: "success", content: `${name} result`, metadata: { resource: name, collectedAt: "now" } };
+      }
+    });
+  }
+  registry.register({
+    name: "invalid",
+    description: "invalid",
+    parameters: {},
+    parseArguments: () => { throw new Error("bad arguments"); },
+    execute: async () => ({ status: "success", content: "unreachable", metadata: { resource: "invalid", collectedAt: "now" } })
+  });
+  registry.register({
+    name: "executor-error",
+    description: "executor-error",
+    parameters: {},
+    parseArguments: (input) => input,
+    execute: async () => {
+      await wait("executor-error");
+      active -= 1;
+      throw new Error("executor failure");
+    }
+  });
+
+  const pending = investigate("question", dependencies(provider, registry, { maxToolCalls: 5, maxConcurrentToolCalls: 2 }));
+  await Promise.all(startedPromises.slice(0, 2));
+  assert.equal(peakActive, 2);
+  deferred.get("executor-error")?.();
+  await startedPromises[2];
+  deferred.get("success-last")?.();
+  deferred.get("success-first")?.();
+  const result = await pending;
+
+  assert.equal(result.complete, true);
+  assert.equal(peakActive, 2);
+  assert.deepEqual(result.evidence.map((item) => [item.id, item.toolCallId]), [
+    ["E1", "call-success-first"],
+    ["E2", "call-success-last"]
+  ]);
+  const toolMessages = secondRequest?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool") ?? [];
+  assert.deepEqual(toolMessages.map((message) => [message.name, message.toolCallId]), [
+    ["success-first", "call-success-first"],
+    ["invalid", "call-invalid"],
+    ["unknown", "call-unknown"],
+    ["executor-error", "call-executor-error"],
+    ["success-last", "call-success-last"]
+  ]);
+  assert.match(toolMessages[1]?.content ?? "", /invalid-arguments/);
+  assert.match(toolMessages[2]?.content ?? "", /unknown-tool/);
+  assert.match(toolMessages[3]?.content ?? "", /internal/);
+});
+
 class ScriptedProvider implements LlmProvider {
   public readonly signals: AbortSignal[] = [];
 
@@ -201,7 +297,7 @@ class ScriptedProvider implements LlmProvider {
 function dependencies(
   provider: LlmProvider,
   registry: ToolRegistry,
-  overrides: Partial<{ modelTimeoutMs: number; subprocessTimeoutMs: number; deadlineMs: number; clock: FakeClock }> = {}
+  overrides: Partial<{ modelTimeoutMs: number; subprocessTimeoutMs: number; deadlineMs: number; maxToolCalls: number; maxConcurrentToolCalls: number; clock: FakeClock }> = {}
 ) {
   return {
     provider,
@@ -209,11 +305,11 @@ function dependencies(
     systemPrompt: "Investigate.",
     limits: {
       maxModelCalls: 3,
-      maxToolCalls: 2,
+      maxToolCalls: overrides.maxToolCalls ?? 2,
       deadlineMs: overrides.deadlineMs ?? 1_000,
       modelTimeoutMs: overrides.modelTimeoutMs ?? 100,
       subprocessTimeoutMs: overrides.subprocessTimeoutMs ?? 100,
-      maxConcurrentToolCalls: 1,
+      maxConcurrentToolCalls: overrides.maxConcurrentToolCalls ?? 1,
       maxLogLines: 100,
       maxRowsPerResult: 100,
       maxCharsPerResult: 1_000,
