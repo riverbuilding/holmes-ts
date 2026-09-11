@@ -1,7 +1,7 @@
 # Phase 2 implementation slices — bounded, evidence-safe engine
 
 Date: September 10, 2026  
-Status: ready to implement  
+Status: implemented and verified
 Prerequisite: Phase 1 at `22f5e26`
 
 This document decomposes Phase 2 from the
@@ -216,18 +216,18 @@ slices pass the gate below.
 
 ## Phase 2 exit gate
 
-- [ ] `src/core/evidence.ts` is the only path that turns a successful tool
+- [x] `src/core/evidence.ts` is the only path that turns a successful tool
       result into retained evidence/model-visible content.
-- [ ] Evidence IDs, provider call IDs, tool history, output ordering, clipping,
+- [x] Evidence IDs, provider call IDs, tool history, output ordering, clipping,
       redaction, and citation validation are deterministic.
-- [ ] Every provider/tool operation receives a derived deadline-aware abort
+- [x] Every provider/tool operation receives a derived deadline-aware abort
       signal and cannot mutate the completed investigation after expiry.
-- [ ] Independent tool calls run concurrently within the configured cap and
+- [x] Independent tool calls run concurrently within the configured cap and
       append in provider order.
-- [ ] Repeated unchanged requests are suppressed after two completed results.
-- [ ] A final empty-tools synthesis is reserved when possible; otherwise the
+- [x] Repeated unchanged requests are suppressed after two completed results.
+- [x] A final empty-tools synthesis is reserved when possible; otherwise the
       returned result is explicitly partial and evidence-backed.
-- [ ] `npm run check` and all deterministic engine tests pass without any
+- [x] `npm run check` and all deterministic engine tests pass without any
       Docker command, Docker daemon, fixture backend, or real model call.
 
 Only after this gate is met may Phase 3 add the fixed-array Docker execution
