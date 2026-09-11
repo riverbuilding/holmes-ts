@@ -346,6 +346,80 @@ test("a zero evidence budget omits successful observations without allocating ID
   assert.equal(toolMessage?.content, "Observation omitted (truncated: evidence-budget).");
 });
 
+test("suppresses a third canonical-identical completed call while retaining its tool-call ID", async () => {
+  let executions = 0;
+  const provider = new ScriptedProvider([
+    { content: "first", toolCalls: [{ id: "call-1", name: "inspect", arguments: { nested: { a: 1, b: 2 }, labels: ["one", "two"] } }] },
+    { content: "second", toolCalls: [{ id: "call-2", name: "inspect", arguments: { labels: ["one", "two"], nested: { b: 2, a: 1 } } }] },
+    {
+      content: "third",
+      toolCalls: [
+        { id: "call-3", name: "inspect", arguments: { nested: { a: 1, b: 2 }, labels: ["one", "two"] } },
+        { id: "call-4", name: "inspect", arguments: { labels: ["one", "two"], nested: { b: 2, a: 1 } } }
+      ]
+    },
+    { content: "Done.", toolCalls: [] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => {
+      executions += 1;
+      return { status: "success", content: "same result", metadata: { resource: "inspect", collectedAt: "now" } };
+    }
+  }), { maxModelCalls: 4, maxToolCalls: 4 }));
+
+  assert.equal(result.complete, true);
+  assert.equal(executions, 2);
+  const suppressed = provider.requests[3]?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool" && (message.toolCallId === "call-3" || message.toolCallId === "call-4")) ?? [];
+  assert.deepEqual(suppressed.map((message) => [message.name, message.toolCallId]), [["inspect", "call-3"], ["inspect", "call-4"]]);
+  assert.ok(suppressed.every((message) => /^Tool error \(duplicate\):/.test(message.content)));
+});
+
+test("a changed completed result resets duplicate suppression", async () => {
+  const outputs = ["first", "changed", "changed"];
+  let executions = 0;
+  const provider = new ScriptedProvider([
+    ...Array.from({ length: 4 }, (_, index) => ({ content: `turn ${index}`, toolCalls: [{ id: `call-${index + 1}`, name: "inspect", arguments: { target: "api" } }] })),
+    { content: "Done.", toolCalls: [] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => {
+      const content = outputs[executions]!;
+      executions += 1;
+      return { status: "success", content, metadata: { resource: "inspect", collectedAt: "now" } };
+    }
+  }), { maxModelCalls: 5, maxToolCalls: 5 }));
+
+  assert.equal(result.complete, true);
+  assert.equal(executions, 3);
+  assert.doesNotMatch(JSON.stringify(provider.requests[3]), /duplicate/);
+  assert.match(JSON.stringify(provider.requests[4]), /duplicate/);
+});
+
+test("completed tool errors are safely tracked and later receive duplicate tool messages", async () => {
+  let executions = 0;
+  const provider = new ScriptedProvider([
+    { content: "first", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] },
+    { content: "second", toolCalls: [{ id: "call-2", name: "inspect", arguments: {} }] },
+    { content: "third", toolCalls: [{ id: "call-3", name: "inspect", arguments: {} }] },
+    { content: "Done.", toolCalls: [] }
+  ]);
+  const result = await investigate("question", dependencies(provider, registryWithTool({
+    name: "inspect",
+    execute: async () => {
+      executions += 1;
+      return { status: "error", code: "unavailable", message: "Service is unavailable.", retryable: false };
+    }
+  }), { maxModelCalls: 4, maxToolCalls: 3 }));
+
+  assert.equal(result.complete, true);
+  assert.equal(executions, 2);
+  const suppressed = provider.requests[3]?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool").at(-1);
+  assert.deepEqual(suppressed && [suppressed.name, suppressed.toolCallId], ["inspect", "call-3"]);
+  assert.match(suppressed?.content ?? "", /^Tool error \(duplicate\):/);
+});
+
 class ScriptedProvider implements LlmProvider {
   public readonly signals: AbortSignal[] = [];
   public readonly requests: Message[][] = [];
@@ -370,6 +444,7 @@ function dependencies(
   registry: ToolRegistry,
   overrides: Partial<{
     modelTimeoutMs: number;
+    maxModelCalls: number;
     subprocessTimeoutMs: number;
     deadlineMs: number;
     maxToolCalls: number;
@@ -385,7 +460,7 @@ function dependencies(
     registry,
     systemPrompt: "Investigate.",
     limits: {
-      maxModelCalls: 3,
+      maxModelCalls: overrides.maxModelCalls ?? 3,
       maxToolCalls: overrides.maxToolCalls ?? 2,
       deadlineMs: overrides.deadlineMs ?? 1_000,
       modelTimeoutMs: overrides.modelTimeoutMs ?? 100,

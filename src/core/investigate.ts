@@ -8,7 +8,7 @@ import type {
   ToolDefinition,
   ToolExecutionResult
 } from "./types.js";
-import { EvidenceCollector, formatEvidenceToolMessage } from "./evidence.js";
+import { DuplicateOutcomeTracker, EvidenceCollector, formatEvidenceToolMessage } from "./evidence.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { LlmProvider } from "../llm/provider.js";
 
@@ -66,6 +66,7 @@ export async function investigate(
     maxEvidenceChars: dependencies.limits.maxEvidenceChars,
     knownSecrets: dependencies.knownSecrets
   });
+  const duplicateOutcomes = new DuplicateOutcomeTracker();
   let modelCalls = 0;
   let toolCalls = 0;
 
@@ -126,6 +127,7 @@ export async function investigate(
           continue;
         }
         const result = toolOutcome.value;
+        duplicateOutcomes.record(call, result);
         if (result.status === "success") {
           const retained = evidenceCollector.retain({
             toolName: call.name,
@@ -221,6 +223,11 @@ export async function investigate(
         nextIndex += 1;
         if (index >= calls.length) return;
         const call = calls[index]!;
+        const duplicate = duplicateOutcomes.duplicateFor(call);
+        if (duplicate !== undefined) {
+          outcomes[index] = { state: "completed", value: duplicate };
+          continue;
+        }
         toolCalls += 1;
         outcomes[index] = await runChild(
           (childSignal) => dependencies.registry.dispatch(call, childSignal),

@@ -1,4 +1,4 @@
-import type { CitationValidation, Evidence, JsonObject, JsonValue, ToolResultMetadata, Truncation } from "./types.js";
+import type { CitationValidation, Evidence, JsonObject, JsonValue, ToolCall, ToolExecutionResult, ToolResultMetadata, Truncation } from "./types.js";
 
 const REDACTION_PLACEHOLDER = "[REDACTED]";
 const MINIMUM_SECRET_LENGTH = 4;
@@ -68,6 +68,58 @@ export function canonicalize(value: JsonValue): string {
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
 
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key]!)}`).join(",")}}`;
+}
+
+/**
+ * Remembers completed tool outcomes by their canonical request. A request is
+ * suppressible only after the same completed outcome has been observed twice;
+ * interruptions deliberately do not contribute to that decision.
+ */
+export class DuplicateOutcomeTracker {
+  private readonly outcomes = new Map<string, { result: string; unchangedCount: number }>();
+
+  public duplicateFor(call: ToolCall): ToolExecutionResult | undefined {
+    const request = canonicalToolRequest(call);
+    if (request === undefined) return undefined;
+    const prior = this.outcomes.get(request);
+    if (prior === undefined || prior.unchangedCount < 2) return undefined;
+    return {
+      status: "error",
+      code: "duplicate",
+      message: "Identical completed tool call was already observed twice.",
+      retryable: false
+    };
+  }
+
+  /** Records only a completed dispatch result; failed/aborted operations are never passed here. */
+  public record(call: ToolCall, result: ToolExecutionResult): void {
+    const request = canonicalToolRequest(call);
+    const outcome = canonicalToolResult(result);
+    if (request === undefined || outcome === undefined) return;
+
+    const prior = this.outcomes.get(request);
+    this.outcomes.set(request, {
+      result: outcome,
+      unchangedCount: prior?.result === outcome ? prior.unchangedCount + 1 : 1
+    });
+  }
+}
+
+function canonicalToolRequest(call: ToolCall): string | undefined {
+  return canonicalizeSafely({ name: call.name, arguments: call.arguments } as JsonValue);
+}
+
+function canonicalToolResult(result: ToolExecutionResult): string | undefined {
+  return canonicalizeSafely(result as unknown as JsonValue);
+}
+
+/** Invalid, non-JSON-shaped provider/tool data cannot establish a duplicate. */
+function canonicalizeSafely(value: JsonValue): string | undefined {
+  try {
+    return canonicalize(value);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Replaces explicitly supplied, non-trivial secrets without mutating the source string. */
