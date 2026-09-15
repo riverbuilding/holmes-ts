@@ -75,6 +75,7 @@ calls.
 - [Scope and implementation plan](docs/holmesgpt-typescript-mvp-plan.md)
 - [Current-state implementation plan](docs/current-state-implementation-plan.md)
 - [Phase 2 evidence-safe engine implementation slices](docs/phase-2-implementation-slices.md)
+- [Phase 3 safe Docker lifecycle implementation slices](docs/phase-3-implementation-slices.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)
