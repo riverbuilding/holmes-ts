@@ -66,7 +66,7 @@ function isFixtureScenario(value: string): value is FixtureScenario {
 }
 
 export interface CliStartupDependencies {
-  readonly dockerCli?: Pick<DockerCli, "resolveContext">;
+  readonly dockerCli?: Pick<DockerCli, "execute" | "resolveContext">;
   readonly createDockerTools?: (scope: DockerScope) => ReturnType<typeof createDockerTools>;
   readonly createFixtureTools?: (scenario: FixtureScenario) => ReturnType<typeof createFixtureTools>;
   readonly reportProgress?: (event: VerboseProgressEvent) => void;
@@ -92,7 +92,7 @@ export async function createAskRegistry(
       new AbortController().signal,
       config.docker.commandTimeoutMs
     );
-    tools = dockerFactory({ context });
+    tools = dockerFactory({ context, cli: dockerCli, commandTimeoutMs: config.docker.commandTimeoutMs });
     if (arguments_.verbose) dependencies.reportProgress?.({ kind: "context-resolved", context });
   } else {
     tools = fixtureFactory(arguments_.fixture);

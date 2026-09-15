@@ -49,6 +49,24 @@ test("Docker CLI invokes only the injected executable with a fixed argv array an
   assert.equal(launcher.calls[0]?.arguments_.includes("exec"), false);
 });
 
+test("container discovery has fixed JSON output formatting and an optional fixed all flag", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const running = cli.execute({ kind: "container-ls", all: false }, "team-dev", new AbortController().signal, 100);
+  requiredProcess(launcher).close(0);
+  const runningResult = await running;
+  const all = cli.execute({ kind: "container-ls", all: true }, "team-dev", new AbortController().signal, 100);
+  requiredProcess(launcher).close(0);
+  const allResult = await all;
+
+  assert.equal(runningResult.termination, "completed");
+  assert.equal(allResult.termination, "completed");
+  assert.deepEqual(launcher.calls.map((call) => call.arguments_), [
+    ["--context", "team-dev", "container", "ls", "--format", "{{json .}}"],
+    ["--context", "team-dev", "container", "ls", "--all", "--format", "{{json .}}"]
+  ]);
+});
+
 test("an already-aborted caller starts no process", async () => {
   const launcher = new FakeLauncher();
   const caller = new AbortController();

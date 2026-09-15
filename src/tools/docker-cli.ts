@@ -195,7 +195,7 @@ function commandArguments(operation: DockerCliOperation, pinnedContext: string |
   switch (operation.kind) {
     case "context-show": return ["context", "show"];
     case "context-inspect": return ["context", "inspect", operation.context];
-    case "container-ls": return withContext(pinnedContext, ["container", "ls", ...(operation.all ? ["--all"] : [])]);
+    case "container-ls": return withContext(pinnedContext, ["container", "ls", ...(operation.all ? ["--all"] : []), "--format", "{{json .}}"]);
     case "inspect": return withContext(pinnedContext, ["inspect", operation.resource]);
     case "container-logs": return withContext(pinnedContext, ["container", "logs", "--timestamps", "--tail", String(operation.tail), operation.container]);
     case "events": return withContext(pinnedContext, ["events", "--since", operation.since, "--until", operation.until, ...(operation.container === undefined ? [] : ["--filter", `container=${operation.container}`])]);

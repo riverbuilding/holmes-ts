@@ -26,7 +26,8 @@ test("a live context resolves once before Docker registrations are constructed",
       order.push("resolve");
       calls.push(context);
       return "team-dev" as DockerContext;
-    }
+    },
+    async execute(): Promise<never> { throw new Error("not used during startup"); }
   };
   const arguments_ = parseAskArguments(["ask", "what happened?", "--docker-context", "team-dev", "--verbose"]);
 
@@ -35,6 +36,8 @@ test("a live context resolves once before Docker registrations are constructed",
     createDockerTools(scope) {
       order.push("construct");
       assert.equal(scope.context, "team-dev");
+      assert.equal(scope.cli, dockerCli);
+      assert.equal(scope.commandTimeoutMs, 10_000);
       return [];
     },
     reportProgress(event) { progress.push(formatVerboseProgress(event)); }
@@ -55,7 +58,8 @@ test("fixture startup does not consult or launch the Docker adapter", async () =
       async resolveContext(): Promise<DockerContext> {
         dockerUsed = true;
         return "must-not-be-used" as DockerContext;
-      }
+      },
+      async execute(): Promise<never> { throw new Error("not used during fixture startup"); }
     },
     createDockerTools() {
       dockerUsed = true;
