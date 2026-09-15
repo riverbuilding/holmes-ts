@@ -6,6 +6,9 @@ export const DEFAULT_LLM_MODEL = "openrouter/free";
 
 export interface AppConfig {
   provider: ProviderConfig;
+  docker: {
+    commandTimeoutMs: number;
+  };
 }
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -18,7 +21,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     "LLM_MODEL_TIMEOUT_MS",
     DEFAULT_LIMITS.modelTimeoutMs
   );
-  return { provider: { apiKey, model, baseUrl, modelTimeoutMs } };
+  const commandTimeoutMs = readPositiveInteger(
+    environment.DOCKER_SUBPROCESS_TIMEOUT_MS,
+    "DOCKER_SUBPROCESS_TIMEOUT_MS",
+    DEFAULT_LIMITS.subprocessTimeoutMs
+  );
+  return { provider: { apiKey, model, baseUrl, modelTimeoutMs }, docker: { commandTimeoutMs } };
 }
 
 function readPositiveInteger(value: string | undefined, name: string, fallback: number): number {

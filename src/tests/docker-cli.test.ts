@@ -1,6 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DockerCli, type DockerCliTimers, type DockerProcessLaunchOptions, type DockerSpawnedProcess } from "../tools/docker-cli.js";
+import { DockerCli, DockerContextError, type DockerCliTimers, type DockerProcessLaunchOptions, type DockerSpawnedProcess } from "../tools/docker-cli.js";
+
+test("context resolution probes exactly once and rejects unsafe explicit names before launch", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const resolved = cli.resolveContext("team-dev", new AbortController().signal, 100);
+  requiredProcess(launcher).close(0);
+  assert.equal(await resolved, "team-dev");
+  assert.deepEqual(launcher.calls[0]?.arguments_, ["context", "inspect", "team-dev"]);
+
+  await assert.rejects(
+    cli.resolveContext("--host=tcp://elsewhere", new AbortController().signal, 100),
+    DockerContextError
+  );
+  assert.equal(launcher.calls.length, 1);
+});
+
+test("default context is read once and normalized before it can be pinned", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const resolved = cli.resolveContext(undefined, new AbortController().signal, 100);
+  requiredProcess(launcher).stdout.emit("desktop-linux\n");
+  requiredProcess(launcher).close(0);
+  assert.equal(await resolved, "desktop-linux");
+  assert.deepEqual(launcher.calls[0]?.arguments_, ["context", "show"]);
+});
 
 test("Docker CLI invokes only the injected executable with a fixed argv array and never a shell", async () => {
   const launcher = new FakeLauncher();

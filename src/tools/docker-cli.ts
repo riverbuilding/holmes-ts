@@ -56,6 +56,14 @@ export interface DockerCliOptions {
   readonly terminationGraceMs?: number;
 }
 
+/** A startup-selected context that may safely be used in fixed command argv. */
+export type DockerContext = string & { readonly __dockerContext: unique symbol };
+
+/** A deliberately small, user-displayable startup error. */
+export class DockerContextError extends Error {
+  public readonly name = "DockerContextError";
+}
+
 /**
  * Executes only a fixed Docker operation through spawn-style argv execution.
  * It owns process lifecycle only; parsing and Docker error classification stay
@@ -150,6 +158,37 @@ export class DockerCli {
       if (signal.aborted) onAbort();
     });
   }
+
+  /**
+   * Resolves the context exactly once at startup. The output of these probe
+   * commands is intentionally consumed here and never becomes tool evidence.
+   */
+  public async resolveContext(explicitContext: string | undefined, signal: AbortSignal, timeoutMs: number): Promise<DockerContext> {
+    const requested = explicitContext === undefined ? undefined : validateContextName(explicitContext);
+    const operation: DockerCliOperation = requested === undefined
+      ? { kind: "context-show" }
+      : { kind: "context-inspect", context: requested };
+    const result = await this.execute(operation, undefined, signal, timeoutMs);
+    if (result.termination === "cancelled") throw new DockerContextError("Docker context resolution was cancelled.");
+    if (result.termination === "timeout") throw new DockerContextError("Docker context resolution timed out.");
+    if (result.termination !== "completed" || result.exitCode !== 0) {
+      throw new DockerContextError("Docker context could not be resolved.");
+    }
+    if (requested !== undefined) return requested;
+    try {
+      return validateContextName(result.stdout.trim());
+    } catch {
+      throw new DockerContextError("Docker returned an invalid current context.");
+    }
+  }
+}
+
+/** Reject values that could change Docker's command-line interpretation. */
+export function validateContextName(value: string): DockerContext {
+  if (value.trim() !== value || value.length === 0 || value.startsWith("-") || /[\0\r\n\t ]/.test(value)) {
+    throw new DockerContextError("Docker context must be a non-blank name and must not start with '-'.");
+  }
+  return value as DockerContext;
 }
 
 function commandArguments(operation: DockerCliOperation, pinnedContext: string | undefined): string[] {
