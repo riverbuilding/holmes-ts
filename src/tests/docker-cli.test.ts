@@ -78,6 +78,25 @@ test("inspect accepts one resource as a fixed positional argument", async () => 
   assert.deepEqual(launcher.calls[0]?.arguments_, ["--context", "team-dev", "inspect", "checkout:1.4"]);
 });
 
+test("events has a fixed JSON format and always receives a finite time window", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const events = cli.execute(
+    { kind: "events", since: "2026-09-15T10:00:00Z", until: "2026-09-15T11:00:00Z", container: "checkout-api" },
+    "team-dev",
+    new AbortController().signal,
+    100
+  );
+  requiredProcess(launcher).close(0);
+  await events;
+
+  assert.deepEqual(launcher.calls[0]?.arguments_, [
+    "--context", "team-dev", "events", "--since", "2026-09-15T10:00:00Z", "--until", "2026-09-15T11:00:00Z",
+    "--format", "{{json .}}", "--filter", "container=checkout-api"
+  ]);
+  assert.equal(launcher.calls[0]?.arguments_.includes("--follow"), false);
+});
+
 test("an already-aborted caller starts no process", async () => {
   const launcher = new FakeLauncher();
   const caller = new AbortController();

@@ -1,6 +1,6 @@
 import type { DockerCommandResult, ToolRegistration } from "../core/types.js";
 import { createDockerTools } from "./docker.js";
-import { projectContainerRows, projectInspect } from "./docker-projection.js";
+import { projectContainerRows, projectEvents, projectInspect, projectLogs } from "./docker-projection.js";
 
 export type FixtureScenario = "missing-env" | "unavailable-image" | "insufficient-evidence";
 
@@ -18,8 +18,34 @@ export function createFixtureTools(scenario: FixtureScenario): ToolRegistration[
         }
       };
     }
+    if (tool.name === "docker_logs") {
+      return {
+        ...tool,
+        async execute(arguments_, _signal) {
+          return projectLogs(fixtureLogsCommand(scenario), "2026-09-15T00:00:00.000Z", fixtureLogTail(arguments_));
+        }
+      };
+    }
+    if (tool.name === "docker_events") {
+      return {
+        ...tool,
+        async execute(arguments_, _signal) {
+          return projectEvents(fixtureEventsCommand(scenario), "2026-09-15T00:00:00.000Z", fixtureEventLimit(arguments_));
+        }
+      };
+    }
     return tool;
   });
+}
+
+function fixtureLogTail(arguments_: unknown): number {
+  if (arguments_ !== null && typeof arguments_ === "object" && "tail" in arguments_ && typeof arguments_.tail === "number") return arguments_.tail;
+  throw new Error("Invalid fixture logs arguments.");
+}
+
+function fixtureEventLimit(arguments_: unknown): number {
+  if (arguments_ !== null && typeof arguments_ === "object" && "limit" in arguments_ && typeof arguments_.limit === "number") return arguments_.limit;
+  throw new Error("Invalid fixture events arguments.");
 }
 
 function fixtureInspectResource(arguments_: unknown): string {
@@ -53,6 +79,24 @@ function fixtureInspectCommand(scenario: FixtureScenario, resource: string): Doc
   }
   const document = scenario === "unavailable-image" ? imageInspectFixture() : containerInspectFixture(scenario);
   return { stdout: JSON.stringify([document]), stderr: "", exitCode: 0, durationMs: 0, termination: "completed", outputTruncated: false };
+}
+
+function fixtureLogsCommand(scenario: FixtureScenario): DockerCommandResult {
+  const lines = scenario === "missing-env"
+    ? ["2026-09-15T00:00:01.000000000Z configuration error: DATABASE_URL is required"]
+    : scenario === "unavailable-image"
+      ? []
+      : ["2026-09-15T00:00:01.000000000Z service started"];
+  return { stdout: lines.join("\n"), stderr: "", exitCode: 0, durationMs: 0, termination: "completed", outputTruncated: false };
+}
+
+function fixtureEventsCommand(scenario: FixtureScenario): DockerCommandResult {
+  const rows = scenario === "missing-env"
+    ? [{ timeNano: 1768435201000000000, Type: "container", Action: "die", Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:1.4" } } }]
+    : scenario === "unavailable-image"
+      ? []
+      : [{ timeNano: 1768435201000000000, Type: "container", Action: "start", Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:latest" } } }];
+  return { stdout: rows.map((row) => JSON.stringify(row)).join("\n"), stderr: "", exitCode: 0, durationMs: 0, termination: "completed", outputTruncated: false };
 }
 
 function containerInspectFixture(scenario: Exclude<FixtureScenario, "unavailable-image">): Record<string, unknown> {

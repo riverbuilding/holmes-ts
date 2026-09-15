@@ -1,12 +1,13 @@
 import { DEFAULT_LIMITS, type JsonObject, type ToolExecutionResult, type ToolRegistration } from "../core/types.js";
 import type { DockerCli } from "./docker-cli.js";
-import { projectContainerRows, projectInspect } from "./docker-projection.js";
+import { projectContainerRows, projectEvents, projectInspect, projectLogs } from "./docker-projection.js";
 import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWindow } from "./validation.js";
 
 export interface DockerScope {
   context?: string;
   cli?: Pick<DockerCli, "execute">;
   commandTimeoutMs?: number;
+  now?: () => number;
 }
 export interface DockerLogsArguments { container_id: string; tail: number; }
 export interface DockerEventsArguments { container_id?: string; since: string; until: string; limit: number; }
@@ -14,6 +15,7 @@ export interface DockerHistoryArguments { image_id: string; limit: number; }
 
 const MAX_ROWS = 100;
 const MAX_LOG_LINES = 100;
+const MAX_EVENT_WINDOW_MS = 24 * 60 * 60 * 1_000;
 
 /**
  * Public Docker schemas adapted from HolmesGPT's docker/core toolset
@@ -25,9 +27,9 @@ export function createDockerTools(scope: DockerScope): ToolRegistration[] {
     containerDiscoveryTool("docker_ps", "List all running Docker containers", false, scope),
     containerDiscoveryTool("docker_ps_all", "List all Docker containers, including stopped ones", true, scope),
     dockerInspectTool(scope),
-    dockerLogsTool(),
+    dockerLogsTool(scope),
     resourceTool("docker_top", "Display the running processes of a container", "container_id"),
-    dockerEventsTool(),
+    dockerEventsTool(scope),
     dockerHistoryTool(),
     resourceTool("docker_diff", "Inspect changes to files or directories on a container's filesystem", "container_id")
   ];
@@ -85,18 +87,28 @@ function resourceTool(name: string, description: string, field: "container_id" |
   };
 }
 
-function dockerLogsTool(): ToolRegistration<DockerLogsArguments> {
+function dockerLogsTool(scope: DockerScope): ToolRegistration<DockerLogsArguments> {
   return {
     name: "docker_logs", description: "Fetch the logs of a Docker container",
     parameters: objectSchema({ container_id: { type: "string", minLength: 1 }, tail: { type: "integer", minimum: 1, maximum: MAX_LOG_LINES, default: MAX_LOG_LINES } }, ["container_id"]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_id", "tail"]);
       return { container_id: identifier(arguments_.container_id, "container_id"), tail: arguments_.tail === undefined ? MAX_LOG_LINES : positiveBoundedInteger(arguments_.tail, "tail", MAX_LOG_LINES) };
-    }, execute: unavailable
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "container-logs", container: arguments_.container_id, tail: arguments_.tail },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectLogs(command, new Date().toISOString(), arguments_.tail);
+    }
   };
 }
 
-function dockerEventsTool(): ToolRegistration<DockerEventsArguments> {
+function dockerEventsTool(scope: DockerScope): ToolRegistration<DockerEventsArguments> {
   return {
     name: "docker_events", description: "Get historical events from the Docker server",
     parameters: objectSchema({ container_id: { type: "string", minLength: 1 }, since: { type: "string", format: "date-time" }, until: { type: "string", format: "date-time" }, limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS } }, ["since", "until"]),
@@ -104,9 +116,32 @@ function dockerEventsTool(): ToolRegistration<DockerEventsArguments> {
       const arguments_ = objectShape(input, ["container_id", "since", "until", "limit"]);
       const window = timeWindow(arguments_);
       if (!window.since || !window.until) throw new Error("since and until are required for historical events.");
+      validateHistoricalEventWindow(window.since, window.until, scope.now ?? Date.now);
       return { ...(arguments_.container_id === undefined ? {} : { container_id: identifier(arguments_.container_id, "container_id") }), since: window.since, until: window.until, limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS) };
-    }, execute: unavailable
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        {
+          kind: "events",
+          since: arguments_.since,
+          until: arguments_.until,
+          ...(arguments_.container_id === undefined ? {} : { container: arguments_.container_id })
+        },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectEvents(command, new Date().toISOString(), arguments_.limit);
+    }
   };
+}
+
+function validateHistoricalEventWindow(since: string, until: string, now: () => number): void {
+  const sinceMs = Date.parse(since);
+  const untilMs = Date.parse(until);
+  if (untilMs > now()) throw new Error("until must not be in the future for historical events.");
+  if (untilMs - sinceMs > MAX_EVENT_WINDOW_MS) throw new Error("Event window must not exceed 24 hours.");
 }
 
 function dockerHistoryTool(): ToolRegistration<DockerHistoryArguments> {
