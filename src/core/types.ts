@@ -125,6 +125,35 @@ export interface ToolError {
 
 export type ToolExecutionResult = ToolSuccess | ToolError;
 
+/**
+ * The only process-level outcomes the Docker CLI boundary exposes. Docker
+ * semantics (for example, whether a nonzero exit means "not found") are
+ * deliberately classified by the Docker projection layer, not here.
+ */
+export type DockerProcessTermination =
+  | "completed"
+  | "nonzero-exit"
+  | "timeout"
+  | "cancelled"
+  | "spawn-error";
+
+/**
+ * Captured facts from one fixed Docker CLI invocation. This is intentionally
+ * not a ToolExecutionResult: stdout and stderr are still untrusted input that
+ * must be parsed/projected before it can become provider-visible evidence.
+ *
+ * A process error is represented only by `termination: "spawn-error"`; raw
+ * Node error objects and their messages never cross this boundary.
+ */
+export interface DockerCommandResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  durationMs: number;
+  termination: DockerProcessTermination;
+  outputTruncated: boolean;
+}
+
 export interface Evidence {
   id: string;
   toolName: string;
