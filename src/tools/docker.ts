@@ -1,6 +1,6 @@
 import { DEFAULT_LIMITS, type JsonObject, type ToolExecutionResult, type ToolRegistration } from "../core/types.js";
 import type { DockerCli } from "./docker-cli.js";
-import { projectContainerRows } from "./docker-projection.js";
+import { projectContainerRows, projectInspect } from "./docker-projection.js";
 import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWindow } from "./validation.js";
 
 export interface DockerScope {
@@ -24,7 +24,7 @@ export function createDockerTools(scope: DockerScope): ToolRegistration[] {
     noArgumentTool("docker_images", "List all Docker images"),
     containerDiscoveryTool("docker_ps", "List all running Docker containers", false, scope),
     containerDiscoveryTool("docker_ps_all", "List all Docker containers, including stopped ones", true, scope),
-    resourceTool("docker_inspect", "Inspect detailed information about a Docker container or image", "container_or_image_id"),
+    dockerInspectTool(scope),
     dockerLogsTool(),
     resourceTool("docker_top", "Display the running processes of a container", "container_id"),
     dockerEventsTool(),
@@ -45,6 +45,27 @@ function containerDiscoveryTool(name: string, description: string, all: boolean,
         scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
       );
       return projectContainerRows(command, new Date().toISOString(), MAX_ROWS);
+    }
+  };
+}
+
+function dockerInspectTool(scope: DockerScope): ToolRegistration<{ container_or_image_id: string }> {
+  return {
+    name: "docker_inspect", description: "Inspect detailed information about a Docker container or image",
+    parameters: objectSchema({ container_or_image_id: { type: "string", minLength: 1 } }, ["container_or_image_id"]),
+    parseArguments(input) {
+      const arguments_ = objectShape(input, ["container_or_image_id"]);
+      return { container_or_image_id: imageReference(arguments_.container_or_image_id, "container_or_image_id") };
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "inspect", resource: arguments_.container_or_image_id },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectInspect(command, new Date().toISOString());
     }
   };
 }

@@ -67,6 +67,17 @@ test("container discovery has fixed JSON output formatting and an optional fixed
   ]);
 });
 
+test("inspect accepts one resource as a fixed positional argument", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const inspect = cli.execute({ kind: "inspect", resource: "checkout:1.4" }, "team-dev", new AbortController().signal, 100);
+  requiredProcess(launcher).close(0);
+  const result = await inspect;
+
+  assert.equal(result.termination, "completed");
+  assert.deepEqual(launcher.calls[0]?.arguments_, ["--context", "team-dev", "inspect", "checkout:1.4"]);
+});
+
 test("an already-aborted caller starts no process", async () => {
   const launcher = new FakeLauncher();
   const caller = new AbortController();

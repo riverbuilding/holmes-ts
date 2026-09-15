@@ -14,6 +14,13 @@
   required by an explicitly accepted current requirement.
 - Preserve existing user changes. Do not reformat, revert, or clean up
   unrelated files.
+- When adding behavior to an existing block, preserve the formatting and line
+  layout of the pre-existing code. Do not collapse, expand, reorder, or
+  otherwise restyle existing statements unless the current change requires it
+  for correctness.
+- Keep formatting-only changes out of feature diffs. If formatting is required
+  by an established formatter, isolate it in a separate, explicitly requested
+  change.
 
 ## Comments
 

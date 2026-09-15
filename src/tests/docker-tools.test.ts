@@ -63,6 +63,68 @@ test("fixtures share discovery schemas and execute without a Docker CLI", async 
   ] });
 });
 
+test("docker_inspect uses one fixed resource operation and projects container secrets safely", async () => {
+  const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
+  const cli = {
+    async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
+      calls.push({ operation, context, timeoutMs });
+      return completed(JSON.stringify([{
+        Id: "container-id", Name: "/api", State: { Status: "exited", ExitCode: 1 },
+        Config: { Image: "checkout:1.4", Env: ["PASSWORD=never-visible"], Labels: { team: "payments", auth_token: "never-visible" } },
+        HostConfig: { Privileged: true }
+      }]));
+    }
+  };
+  const inspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_inspect");
+  const result = await inspect.execute(inspect.parseArguments({ container_or_image_id: "checkout:1.4" }), new AbortController().signal);
+
+  assert.deepEqual(calls, [{ operation: { kind: "inspect", resource: "checkout:1.4" }, context: "team-dev", timeoutMs: 321 }]);
+  assert.equal(result.status, "success");
+  assert.deepEqual(JSON.parse(result.content), {
+    kind: "container", id: "container-id", name: "/api", imageReference: "checkout:1.4", state: "exited", exitCode: 1,
+    labels: { auth_token: "<withheld>", team: "payments" }
+  });
+  assert.doesNotMatch(JSON.stringify(result), /never-visible|PASSWORD|Privileged/);
+});
+
+test("docker_inspect maps missing resources and rejects whitespace-bearing targets", async () => {
+  const missing = {
+    async execute(): Promise<DockerCommandResult> {
+      return { stdout: "", stderr: "Error response from daemon: No such object: missing", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+    }
+  };
+  const inspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_inspect");
+  assert.throws(() => inspect.parseArguments({ container_or_image_id: "checkout api" }), /must not contain whitespace/);
+  const result = await inspect.execute(inspect.parseArguments({ container_or_image_id: "missing" }), new AbortController().signal);
+  assert.deepEqual(result, { status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false });
+
+  const malformed = {
+    async execute(): Promise<DockerCommandResult> { return completed("[{},{ }]"); }
+  };
+  const malformedInspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_inspect");
+  const malformedResult = await malformedInspect.execute(malformedInspect.parseArguments({ container_or_image_id: "checkout-api" }), new AbortController().signal);
+  assert.deepEqual(malformedResult, { status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false });
+});
+
+test("inspect fixtures use the same schemas and container/image projector", async () => {
+  const container = requiredTool(toolMap(createFixtureTools("missing-env")), "docker_inspect");
+  const containerResult = await container.execute(container.parseArguments({ container_or_image_id: "checkout-api" }), new AbortController().signal);
+  assert.equal(containerResult.status, "success");
+  assert.deepEqual(JSON.parse(containerResult.content), {
+    kind: "container", id: "checkout-api", name: "/checkout-api", imageReference: "checkout:1.4", createdAt: "2026-09-15T00:00:00.000Z",
+    state: "exited", exitCode: 1, labels: { api_token: "<withheld>", service: "checkout" }
+  });
+  assert.doesNotMatch(JSON.stringify(containerResult), /never-visible|DATABASE_URL/);
+
+  const image = requiredTool(toolMap(createFixtureTools("unavailable-image")), "docker_inspect");
+  const imageResult = await image.execute(image.parseArguments({ container_or_image_id: "checkout:1.4" }), new AbortController().signal);
+  assert.equal(imageResult.status, "success");
+  assert.deepEqual(JSON.parse(imageResult.content), {
+    kind: "image", id: "sha256:checkout", tags: ["checkout:1.4"], createdAt: "2026-09-15T00:00:00.000Z", architecture: "amd64", os: "linux",
+    command: ["node", "server.js"], labels: { password: "<withheld>", service: "checkout" }
+  });
+});
+
 function completed(stdout: string): DockerCommandResult {
   return { stdout, stderr: "", exitCode: 0, durationMs: 3, termination: "completed", outputTruncated: false };
 }
