@@ -79,7 +79,10 @@ safe inspect projections, logs, and events). They are not Docker images or
 running containers. The `missing-env`, `unhealthy-container`, and
 `insufficient-evidence` fixtures exercise the same public schemas, validation,
 projections, truncation, and structured-error shape as the live lifecycle
-tools. A disposable live-Docker demonstration has not yet been added.
+tools. [`examples/docker`](../examples/docker/README.md) provides a
+credential-free disposable Compose demonstration with one crashed and one
+unhealthy container. Its recorded validation status is in the
+[Phase 3 live-Docker validation record](phase-3-live-docker-validation.md).
 
 For the complete delivery plan, see
 [the local-Docker diagnostics scope](holmesgpt-typescript-mvp-plan.md).

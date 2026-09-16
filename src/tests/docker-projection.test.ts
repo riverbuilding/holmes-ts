@@ -87,6 +87,9 @@ test("process failures map to fixed, non-secret errors", () => {
   assert.deepEqual(mapDockerCommandFailure({ ...completed(""), exitCode: 1, termination: "nonzero-exit", stderr: "Cannot connect to the Docker daemon at unix:///private/socket" }), {
     status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true
   });
+  assert.deepEqual(mapDockerCommandFailure({ ...completed(""), exitCode: 1, termination: "nonzero-exit", stderr: "failed to connect to the docker API at unix:///private/socket" }), {
+    status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true
+  });
   assert.deepEqual(mapDockerCommandFailure({ ...completed(""), exitCode: null, termination: "timeout" }), {
     status: "error", code: "timeout", message: "Docker command timed out.", retryable: true
   });

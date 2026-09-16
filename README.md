@@ -70,7 +70,8 @@ if the default route does not support tool calls.
 - `src/tests/`: also retains Phase 1 contract/schema/registry/provider tests.
 - `fixtures/`: fixed lifecycle observations for `missing-env`,
   `unhealthy-container`, and `insufficient-evidence`.
-- `examples/docker/`: reserved for disposable live-Docker demonstrations; currently empty.
+- `examples/docker/`: disposable crashed/unhealthy Compose demonstration for
+  lifecycle validation.
 - `examples/kubernetes/`: legacy empty placeholder; Kubernetes is out of scope.
 
 ## Documentation
@@ -79,6 +80,7 @@ if the default route does not support tool calls.
 - [Current-state implementation plan](docs/current-state-implementation-plan.md)
 - [Phase 2 evidence-safe engine implementation slices](docs/phase-2-implementation-slices.md)
 - [Phase 3 safe Docker lifecycle implementation slices](docs/phase-3-implementation-slices.md)
+- [Phase 3 live-Docker validation record](docs/phase-3-live-docker-validation.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)

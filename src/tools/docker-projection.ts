@@ -244,5 +244,5 @@ function compact(value: Record<string, JsonValue | undefined>): JsonObject {
 function compareContainerRows(left: JsonObject, right: JsonObject): number { return String(left.name ?? left.id ?? "").localeCompare(String(right.name ?? right.id ?? "")); }
 function compareEvents(left: JsonObject, right: JsonObject): number { return `${left.timeNano ?? ""}:${left.resourceId ?? ""}`.localeCompare(`${right.timeNano ?? ""}:${right.resourceId ?? ""}`); }
 function notFound(stderr: string): boolean { return /no such (container|object|image)|not found/i.test(stderr); }
-function unavailable(stderr: string): boolean { return /cannot connect to the docker daemon|is the docker daemon running|connection refused|error during connect/i.test(stderr); }
+function unavailable(stderr: string): boolean { return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|connection refused|error during connect/i.test(stderr); }
 function splitTableLine(line: string): string[] { return line.trim().split(/(?:\t+| {2,})/); }
