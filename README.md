@@ -4,12 +4,12 @@ A TypeScript port of HolmesGPT's complete local-Docker diagnostic toolset, based
 
 ## Project status
 
-Phase 3's bounded, evidence-safe investigation engine is in place alongside
+Phase 4's bounded, evidence-safe investigation engine is in place alongside
 the Phase 1 contracts and OpenAI-compatible Chat Completions provider. It can
-investigate container lifecycle evidence through fixtures or one pinned local
-Docker context: running/all container discovery, inspect, bounded logs, and
-bounded historical events. `docker_images`, `docker_top`, `docker_history`,
-and `docker_diff` remain registered but intentionally unavailable.
+investigate through fixtures or one pinned local Docker context using all nine
+read-only Docker tools: `docker_images`, `docker_ps`, `docker_ps_all`,
+`docker_inspect`, `docker_logs`, `docker_top`, `docker_events`,
+`docker_history`, and `docker_diff`.
 
 ## Investigation engine guarantees
 
@@ -48,9 +48,11 @@ The deterministic engine, Docker adapter, projection, fixture, and CLI tests
 use scripted providers, in-memory registries, fake processes/timers, and fixed
 observations; they need no Docker daemon. `npm test` also retains the Phase 1
 provider integration suite, which requires `LLM_API_KEY` and network access.
-It uses a real model, sends all Docker schemas, returns a mocked tool result,
-and requires a final answer, but does not invoke Docker. It defaults to
-OpenRouter's free-model router (`openrouter/free`) at
+It uses a real model, sends all nine Docker schemas, returns a mocked tool
+result, and requires a final answer, but does not invoke Docker. It is separate
+from deterministic Docker coverage, Phase 4 live-Docker validation, and the
+Phase 5 real-model fixture evaluation. It defaults to OpenRouter's free-model
+router (`openrouter/free`) at
 `https://openrouter.ai/api/v1`. Set `LLM_MODEL` to a tool-calling-capable model
 if the default route does not support tool calls.
 
@@ -68,8 +70,8 @@ if the default route does not support tool calls.
 - `src/tests/investigate.test.ts`: deterministic engine limits, cancellation,
   concurrency, ordering, duplicate, and synthesis tests.
 - `src/tests/`: also retains Phase 1 contract/schema/registry/provider tests.
-- `fixtures/`: fixed lifecycle observations for `missing-env`,
-  `unhealthy-container`, and `insufficient-evidence`.
+- `fixtures/`: fixed observations for `missing-env`, `unhealthy-container`,
+  `insufficient-evidence`, `image-regression`, and `writable-layer-change`.
 - `examples/docker/`: disposable crashed/unhealthy Compose demonstration for
   lifecycle validation.
 - `examples/kubernetes/`: legacy empty placeholder; Kubernetes is out of scope.
@@ -81,6 +83,7 @@ if the default route does not support tool calls.
 - [Phase 2 evidence-safe engine implementation slices](docs/phase-2-implementation-slices.md)
 - [Phase 3 safe Docker lifecycle implementation slices](docs/phase-3-implementation-slices.md)
 - [Phase 3 live-Docker validation record](docs/phase-3-live-docker-validation.md)
+- [Phase 4 image and runtime implementation slices](docs/phase-4-implementation-slices.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)
