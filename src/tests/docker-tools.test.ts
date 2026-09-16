@@ -116,7 +116,7 @@ test("inspect fixtures use the same schemas and container/image projector", asyn
   });
   assert.doesNotMatch(JSON.stringify(containerResult), /never-visible|DATABASE_URL/);
 
-  const image = requiredTool(toolMap(createFixtureTools("unavailable-image")), "docker_inspect");
+  const image = requiredTool(toolMap(createFixtureTools("unhealthy-container")), "docker_inspect");
   const imageResult = await image.execute(image.parseArguments({ container_or_image_id: "checkout:1.4" }), new AbortController().signal);
   assert.equal(imageResult.status, "success");
   assert.deepEqual(JSON.parse(imageResult.content), {

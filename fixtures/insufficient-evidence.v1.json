@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "collectedAt": "2026-09-15T00:00:00.000Z",
+  "containers": { "running": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:latest", "State": "running", "Status": "Up 3 minutes" }], "all": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:latest", "State": "running", "Status": "Up 3 minutes" }] },
+  "inspect": { "checkout-api": { "Id": "checkout-api", "Name": "/checkout-api", "Created": "2026-09-15T00:00:00.000Z", "State": { "Status": "running", "ExitCode": 0 }, "Config": { "Image": "checkout:latest", "Labels": { "service": "checkout" } } } },
+  "logs": {},
+  "events": { "checkout-api": [] }
+}

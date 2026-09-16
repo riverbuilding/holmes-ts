@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "collectedAt": "2026-09-15T00:00:00.000Z",
+  "containers": { "running": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:1.4", "State": "running", "Status": "Up 3 minutes (unhealthy)", "Health": "unhealthy" }], "all": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:1.4", "State": "running", "Status": "Up 3 minutes (unhealthy)", "Health": "unhealthy" }] },
+  "inspect": { "checkout-api": { "Id": "checkout-api", "Name": "/checkout-api", "Created": "2026-09-15T00:00:00.000Z", "State": { "Status": "running", "ExitCode": 0, "Health": { "Status": "unhealthy" } }, "Config": { "Image": "checkout:1.4", "Labels": { "service": "checkout" } } }, "checkout:1.4": { "Id": "sha256:checkout", "RepoTags": ["checkout:1.4"], "Created": "2026-09-15T00:00:00.000Z", "Architecture": "amd64", "Os": "linux", "Config": { "Cmd": ["node", "server.js"], "Env": ["PASSWORD=never-visible"], "Labels": { "service": "checkout", "password": "never-visible" } } } },
+  "logs": { "checkout-api": ["2026-09-15T00:00:01.000000000Z healthcheck failed: dependency did not respond"] },
+  "events": { "checkout-api": [{ "timeNano": 1768435201000000000, "Type": "container", "Action": "health_status: unhealthy", "Actor": { "ID": "checkout-api", "Attributes": { "name": "checkout-api", "image": "checkout:1.4" } } }] }
+}

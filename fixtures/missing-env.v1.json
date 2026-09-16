@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "collectedAt": "2026-09-15T00:00:00.000Z",
+  "containers": { "running": [{ "ID": "checkout-db", "Names": "checkout-db", "Image": "postgres:16", "State": "running", "Status": "Up 10 minutes" }], "all": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:1.4", "State": "exited", "Status": "Exited (1) 2 minutes ago" }, { "ID": "checkout-db", "Names": "checkout-db", "Image": "postgres:16", "State": "running", "Status": "Up 10 minutes" }] },
+  "inspect": { "checkout-api": { "Id": "checkout-api", "Name": "/checkout-api", "Created": "2026-09-15T00:00:00.000Z", "State": { "Status": "exited", "ExitCode": 1 }, "Config": { "Image": "checkout:1.4", "Env": ["DATABASE_URL=never-visible"], "Labels": { "service": "checkout", "api_token": "never-visible" } } } },
+  "logs": { "checkout-api": ["2026-09-15T00:00:01.000000000Z configuration error: DATABASE_URL is required"] },
+  "events": { "checkout-api": [{ "timeNano": 1768435201000000000, "Type": "container", "Action": "die", "Actor": { "ID": "checkout-api", "Attributes": { "name": "checkout-api", "image": "checkout:1.4" } } }] }
+}

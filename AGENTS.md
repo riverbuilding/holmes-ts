@@ -31,6 +31,17 @@
   unless that code is part of the current requested change and its comment has
   become inaccurate.
 
+## Readability and formatting
+
+- Write production and test code in a readable multi-line style. Do not compress
+  functions, branches, loops, object literals, or error handling into dense
+  one-line statements merely to reduce line count.
+- Use line breaks and local variables to make validation, control flow, and
+  side effects easy to review. A short single-line guard or return is fine when
+  it remains immediately clear.
+- Apply these rules to newly written code and to code touched by the current
+  task; do not reformat unrelated code solely for style.
+
 ## TypeScript practices
 
 - Keep `strict` TypeScript intact. Do not weaken compiler options or use
