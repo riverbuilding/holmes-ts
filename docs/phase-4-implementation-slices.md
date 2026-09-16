@@ -1,15 +1,16 @@
 # Phase 4 implementation slices — safe Docker image and runtime evidence
 
 Date: September 15, 2026
+Completed: September 16, 2026
 
-Status: ready to implement
+Status: completed
 
-Prerequisite: Phase 3 lifecycle exit gate, including the recorded live-Docker
-validation at `dbf134f`
+Prerequisite met: Phase 3 lifecycle exit gate, including its recorded
+live-Docker validation at `dbf134f`
 
-This document decomposes Phase 4 of the
+This document records the completed Phase 4 implementation of the
 [current-state implementation plan](current-state-implementation-plan.md) into
-small, test-first slices. It completes the planned read-only `docker/core`
+small, test-first slices. It completed the planned read-only `docker/core`
 surface by implementing the four registrations intentionally left unavailable
 after Phase 3:
 
@@ -18,7 +19,7 @@ after Phase 3:
 - `docker_history`
 - `docker_diff`
 
-It also adds the `image-regression` and `writable-layer-change` fixture
+It also added the `image-regression` and `writable-layer-change` fixture
 scenarios. The Phase 2 engine remains the sole owner of evidence retention,
 known-secret redaction, character budgets, deadlines, provider history, and
 citation validation. Phase 3's fixed-array Docker adapter remains the sole
@@ -43,7 +44,7 @@ All deterministic unit and fixture tests run without a Docker daemon. The
 disposable Docker environment is used only after the deterministic exit gate
 for the final live-validation slice.
 
-## Decisions frozen before implementation
+## Implemented decisions
 
 | Concern | Phase 4 decision |
 |---|---|
@@ -60,7 +61,7 @@ for the final live-validation slice.
 | Errors | Reuse the Phase 3 error vocabulary: `not-found`, `unavailable`, `timeout`, `cancelled`, `malformed-output`, and `nonzero-exit`. Add only fixed, tested classification patterns required for a stopped-container `docker_top` response; never forward stderr. |
 | Fixture parity | Fixtures use the public tool schemas and the exact same projector/error path as live mode. Fixture data supplies captured-format observations, not diagnoses or pre-rendered tool results. |
 
-### Command construction rules
+### Implemented command construction
 
 Centralize all new argv construction in `src/tools/docker-cli.ts`. The command
 layer must not accept a free-form argument array. The variable positions below
@@ -77,18 +78,21 @@ Every operational command is prefixed with the startup-pinned context. Tests
 must assert complete argument arrays, including the fixed format string and
 ordering, rather than merely assert that safe words appear.
 
-## Slice sequence
+## Completion record
 
-| Slice | Deliverable | Primary files | Completion criteria |
+| Slice | Delivered work | Primary files | Verification |
 |---|---|---|---|
-| 1. Command and projection foundation | Extend the closed CLI-operation union and add parsers/projectors shared by all four tools. | `src/tools/docker-cli.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-cli.test.ts`, `src/tests/docker-projection.test.ts` | Exact new argv arrays, pinned context, parser failures, safe projections, stable ordering, and independent row truncation are deterministic. |
-| 2. Image inventory and history | Implement `docker_images` and `docker_history` through the live registry and shared projections. | `src/tools/docker.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-tools.test.ts` | Both tools replace `unavailable`; schemas stay compatible; image/history successes and structured failures pass. |
-| 3. Runtime processes and filesystem diff | Implement `docker_top` and `docker_diff` through the live registry and shared projections. | `src/tools/docker.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-tools.test.ts` | Neither tool accepts arbitrary process/filter options; table/diff parsing, stopped/missing behavior, bounds, and safe errors pass. |
-| 4. Fixture-contract migration and scenarios | Extend versioned fixture observations and add `image-regression` and `writable-layer-change`. | `src/tools/fixtures.ts`, `fixtures/*`, `src/tests/docker-tools.test.ts`, `src/tests/fixture-investigations.test.ts` | All five fixtures expose every implemented tool through shared schemas/projectors without Docker; walkthroughs demonstrate supported evidence paths and uncertainty. |
-| 5. Documentation and deterministic gate | Update availability, security, upstream map, and quickstart; execute the deterministic gate. | `README.md`, `docs/quickstart.md`, `docs/security-and-data-handling.md`, `docs/upstream-port-map.md` | Documentation describes all nine active tools and concrete limits; checks and tests pass without a Docker daemon for deterministic coverage. |
-| 6. Disposable live-Docker validation | Extend the credential-free Compose example and record a safe live validation. | `examples/docker/*`, `docs/phase-4-live-docker-validation.md` | One disposable run demonstrates image inventory/history, process listing, and filesystem diff through the pinned context without recording raw sensitive evidence. |
+| 1. Command and projection foundation | Extended the closed CLI-operation union and added shared parsers/projectors. | `src/tools/docker-cli.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-cli.test.ts`, `src/tests/docker-projection.test.ts` | Complete pinned-context argv arrays, parser failures, safe projections, stable ordering, and independent row truncation are covered deterministically. |
+| 2. Image inventory and history | Implemented `docker_images` and `docker_history` through the live registry and shared projections. | `src/tools/docker.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-tools.test.ts` | Both tools return structured projected observations; schema compatibility and success/failure cases pass. |
+| 3. Runtime processes and filesystem diff | Implemented `docker_top` and `docker_diff` through the live registry and shared projections. | `src/tools/docker.ts`, `src/tools/docker-projection.ts`, `src/tests/docker-tools.test.ts` | Arbitrary process/filter options remain unavailable; table/diff parsing, stopped/missing behavior, bounds, and safe errors pass. |
+| 4. Fixture-contract migration and scenarios | Migrated versioned fixture observations and added `image-regression` and `writable-layer-change`. | `src/tools/fixtures.ts`, `fixtures/*`, `src/tests/docker-tools.test.ts`, `src/tests/fixture-investigations.test.ts` | All five fixtures expose every implemented tool through shared schemas/projectors without Docker; walkthroughs demonstrate supported evidence paths and uncertainty. |
+| 5. Documentation and deterministic gate | Updated availability, security, upstream-map, and quickstart documentation; completed the deterministic gate. | `README.md`, `docs/quickstart.md`, `docs/security-and-data-handling.md`, `docs/upstream-port-map.md` | Documentation describes all nine active tools and concrete limits; checks and tests pass without a Docker daemon for deterministic coverage. |
+| 6. Disposable live-Docker validation | Extended the credential-free Compose example and recorded a safe live validation. | `examples/docker/*`, `docs/phase-4-live-docker-validation.md` | The completed disposable run demonstrated image inventory/history, process listing, and filesystem diff through the pinned context without recording raw sensitive evidence. |
 
 ## Implementation detail by slice
+
+The following implementation requirements are retained as the design record
+for the completed work.
 
 ### 1. Command and projection foundation
 
@@ -246,25 +250,27 @@ Tear down the disposable environment when validation finishes.
 
 ## Phase 4 exit gate
 
-- [ ] Every new Docker operation is a closed, fixed read-only argument array
+- [x] Every new Docker operation is a closed, fixed read-only argument array
       under the one pinned context, with no shell, arbitrary option, or
       mutating operation.
-- [ ] `docker_images`, `docker_top`, `docker_history`, and `docker_diff`
+- [x] `docker_images`, `docker_top`, `docker_history`, and `docker_diff`
       return projected, bounded, structured observations rather than
       `unavailable`.
-- [ ] Image, process, history, and diff projectors reject malformed output,
+- [x] Image, process, history, and diff projectors reject malformed output,
       do not forward raw Docker errors, preserve truncation provenance, and
       apply independent row limits before Phase 2 evidence retention.
-- [ ] Raw history commands and arbitrary raw Docker/configuration fields do
+- [x] Raw history commands and arbitrary raw Docker/configuration fields do
       not reach tool content or metadata; process output and diff paths are
       clearly treated as untrusted evidence.
-- [ ] Stopped/missing targets, daemon failures, cancellation, subprocess
+- [x] Stopped/missing targets, daemon failures, cancellation, subprocess
       timeout, and capture truncation have safe, deterministic results.
-- [ ] All five fixture scenarios use the same schemas, validation, projections,
+- [x] All five fixture scenarios use the same schemas, validation, projections,
       limits, and error semantics as live mode without requiring Docker.
-- [ ] `npm run check`, the complete test suite, and `git diff --check` pass.
-- [ ] A disposable live-Docker run records image/runtime validation without
+- [x] `npm run check`, the complete test suite, and `git diff --check` pass.
+- [x] A disposable live-Docker run records image/runtime validation without
       widening the command surface or committing sensitive raw output.
 
-Only after this gate is met may Phase 5 begin real-model fixture evaluations,
-renderer completion, and release-readiness work.
+The completed live-Docker validation is recorded in
+[phase-4-live-docker-validation.md](phase-4-live-docker-validation.md).
+Phase 5 may now proceed with real-model fixture evaluations, renderer
+completion, and release-readiness work.
