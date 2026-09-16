@@ -7,10 +7,14 @@ for an operator-controlled local Docker context, but its application-level
 read-only restrictions do not reduce the permissions already granted to the
 Docker CLI or socket.
 
-The planned toolset permits only Docker reads: image/container listing,
-inspect, logs, process listing, historical events, image history, and container
-filesystem diffs. It must not expose arbitrary shell commands, Docker flags,
-model-selected contexts, `docker exec`, attach/copy, or Docker write commands.
+The implemented lifecycle toolset permits only container listing, inspect,
+timestamped bounded logs, and bounded historical events. It invokes the literal
+`docker` executable using fixed argument arrays with `shell: false`; a model
+cannot select an executable, context, subcommand, flag, or shell expression.
+The context is resolved or validated once at startup and pinned for every live
+operation. `docker_images`, `docker_top`, `docker_history`, and `docker_diff`
+are not implemented. The application must not expose arbitrary shell commands,
+`docker exec`, attach/copy, model-selected contexts, or Docker write commands.
 
 ## Evidence sent to the model provider
 
@@ -24,18 +28,24 @@ annotating source and engine truncation. Successful output that cannot retain
 any content receives no evidence ID and is not citeable.
 
 This is deliberately exact-value redaction, not credential detection. Inspect
-projections must still omit environment-variable values and Phase 3 must supply
-known credentials, tokens, and auth material for redaction. Logs can still
-include secrets that were not supplied as known values; use fixtures or
-sanitize the local environment when that is a concern.
+projections omit environment-variable values and authentication material, and
+replace label values with `<withheld>` when their key contains `secret`,
+`token`, `password`, `passwd`, `credential`, `auth`, or `key`. No credential
+values are inferred from Docker output for the engine's known-secret redaction.
+Logs can still include secrets that were not supplied as known values; use
+fixtures or sanitize the local environment when that is a concern.
 
 ## Limits and untrusted content
 
 The engine bounds model/tool operation time, result characters, and total
-accumulated evidence; the Docker adapter will additionally bound subprocess
-time, event windows, and result rows. Each operation receives a derived abort
-signal for caller cancellation, the investigation-wide deadline, and its local
-timeout. Results that settle after a stop cannot alter history or evidence.
+accumulated evidence. The Docker adapter captures at most 1 MiB each of stdout
+and stderr, bounds each subprocess by `DOCKER_SUBPROCESS_TIMEOUT_MS` (10 seconds
+by default), and terminates a timed-out or cancelled child. Container and event
+results retain at most 100 rows; logs use a validated tail of at most 100 lines;
+and event windows may not exceed 24 hours or end in the future. Each operation
+receives a derived abort signal for caller cancellation, the investigation-wide
+deadline, and its local timeout. Results that settle after a stop cannot alter
+history or evidence.
 
 Docker output is evidence, not instructions: neither the agent nor the tool
 runner should obey instructions embedded in a log line, label, image metadata,

@@ -4,10 +4,12 @@ A TypeScript port of HolmesGPT's complete local-Docker diagnostic toolset, based
 
 ## Project status
 
-Phase 2's bounded, evidence-safe investigation engine is in place alongside
-the Phase 1 contracts and OpenAI-compatible Chat Completions provider. Docker
-and fixture execution remain intentionally unimplemented, so neither fixture
-nor live-Docker investigations run yet.
+Phase 3's bounded, evidence-safe investigation engine is in place alongside
+the Phase 1 contracts and OpenAI-compatible Chat Completions provider. It can
+investigate container lifecycle evidence through fixtures or one pinned local
+Docker context: running/all container discovery, inspect, bounded logs, and
+bounded historical events. `docker_images`, `docker_top`, `docker_history`,
+and `docker_diff` remain registered but intentionally unavailable.
 
 ## Investigation engine guarantees
 
@@ -36,29 +38,29 @@ npm run check
 npm test
 ```
 
-The planned command, once the provider and fixture backend are implemented, is:
+Run a deterministic fixture investigation without a Docker daemon:
 
 ```bash
 npm run dev -- ask "Why did checkout exit?" --fixture missing-env
 ```
 
-The deterministic engine coverage in `evidence.test.ts` and
-`investigate.test.ts` uses scripted providers, in-memory registries, fake
-timers, and controlled promises: it needs no Docker daemon, fixtures, or
-network access. `npm test` also retains the pre-existing Phase 1 provider
-integration suite. Set `LLM_API_KEY` for that suite: it uses a real model,
-sends the Docker schemas, returns a mocked tool result, and requires a final
-answer, but does not invoke Docker. It defaults to OpenRouter's free-model
-router (`openrouter/free`) at `https://openrouter.ai/api/v1`. Set `LLM_MODEL`
-to a tool-calling-capable model if the default route does not support tool
-calls.
+The deterministic engine, Docker adapter, projection, fixture, and CLI tests
+use scripted providers, in-memory registries, fake processes/timers, and fixed
+observations; they need no Docker daemon. `npm test` also retains the Phase 1
+provider integration suite, which requires `LLM_API_KEY` and network access.
+It uses a real model, sends all Docker schemas, returns a mocked tool result,
+and requires a final answer, but does not invoke Docker. It defaults to
+OpenRouter's free-model router (`openrouter/free`) at
+`https://openrouter.ai/api/v1`. Set `LLM_MODEL` to a tool-calling-capable model
+if the default route does not support tool calls.
 
 ## Current layout
 
 - `src/cli.ts` and `src/config.ts`: command parsing and environment validation.
 - `src/core/`: bounded investigation-loop contracts and implementation.
 - `src/llm/`: provider interface and OpenAI-compatible Chat Completions adapter.
-- `src/tools/`: registry plus unimplemented Docker and fixture factories.
+- `src/tools/`: registry, fixed-array Docker CLI adapter, lifecycle-tool
+  projections, and fixture factories.
 - `src/prompts/`: attributed local-Docker investigation prompt.
 - `src/output/`: terminal-result rendering.
 - `src/tests/evidence.test.ts`: deterministic evidence, redaction, budget,
@@ -66,7 +68,8 @@ calls.
 - `src/tests/investigate.test.ts`: deterministic engine limits, cancellation,
   concurrency, ordering, duplicate, and synthesis tests.
 - `src/tests/`: also retains Phase 1 contract/schema/registry/provider tests.
-- `fixtures/`: reserved for fixed Docker-observation scenarios; currently empty.
+- `fixtures/`: fixed lifecycle observations for `missing-env`,
+  `unhealthy-container`, and `insufficient-evidence`.
 - `examples/docker/`: reserved for disposable live-Docker demonstrations; currently empty.
 - `examples/kubernetes/`: legacy empty placeholder; Kubernetes is out of scope.
 
