@@ -91,6 +91,69 @@ test("docker_images maps malformed and daemon failures to structured errors", as
   });
 });
 
+test("docker_top uses the fixed process operation and safely projects bounded rows", async () => {
+  const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
+  const cli = {
+    async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
+      calls.push({ operation, context, timeoutMs });
+      return completed("PID  USER  COMMAND\n20  app  node server.js\n10  root  sleep 1\n");
+    }
+  };
+  const top = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_top");
+  const result = await top.execute(top.parseArguments({ container_id: "checkout-api" }), new AbortController().signal);
+
+  assert.deepEqual(calls, [{ operation: { kind: "container-top", container: "checkout-api" }, context: "team-dev", timeoutMs: 321 }]);
+  assert.equal(result.status, "success");
+  assert.deepEqual(JSON.parse(result.content), {
+    headers: ["PID", "USER", "COMMAND"],
+    processes: [{ fields: ["10", "root", "sleep 1"] }, { fields: ["20", "app", "node server.js"] }]
+  });
+  assert.throws(() => top.parseArguments({ container_id: "checkout-api", ps_args: "aux" }), /Unknown argument/);
+  assert.throws(() => top.parseArguments({ container_id: "--format" }), /must not start/);
+});
+
+test("docker_top maps stopped and missing containers without returning Docker errors", async () => {
+  const stopped = {
+    async execute(): Promise<DockerCommandResult> {
+      return { stdout: "", stderr: "Error response from daemon: Container private-token is not running", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+    }
+  };
+  const top = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: stopped })), "docker_top");
+  assert.deepEqual(await top.execute(top.parseArguments({ container_id: "checkout-api" }), new AbortController().signal), {
+    status: "error", code: "nonzero-exit", message: "Docker container is not running.", retryable: false
+  });
+
+  const missing = {
+    async execute(): Promise<DockerCommandResult> {
+      return { stdout: "", stderr: "Error response from daemon: No such container: private-token", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+    }
+  };
+  const missingTop = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_top");
+  assert.deepEqual(await missingTop.execute(missingTop.parseArguments({ container_id: "checkout-api" }), new AbortController().signal), {
+    status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false
+  });
+});
+
+test("docker_diff uses the fixed operation, projects paths, and retains the row cap", async () => {
+  const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
+  const rows = Array.from({ length: 101 }, (_, index) => `A /app/${String(index).padStart(3, "0")}`).join("\n");
+  const cli = {
+    async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
+      calls.push({ operation, context, timeoutMs });
+      return completed(rows);
+    }
+  };
+  const diff = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_diff");
+  const result = await diff.execute(diff.parseArguments({ container_id: "checkout-api" }), new AbortController().signal);
+
+  assert.deepEqual(calls, [{ operation: { kind: "container-diff", container: "checkout-api" }, context: "team-dev", timeoutMs: 321 }]);
+  assert.equal(result.status, "success");
+  assert.equal(JSON.parse(result.content).changes.length, 100);
+  assert.deepEqual(result.truncation, { truncated: true, reason: "row-limit", originalItemCount: 101, retainedItemCount: 100 });
+  assert.throws(() => diff.parseArguments({ container_id: "checkout-api", filter: "A" }), /Unknown argument/);
+  assert.throws(() => diff.parseArguments({ container_id: "--format" }), /must not start/);
+});
+
 test("fixtures share discovery schemas and execute without a Docker CLI", async () => {
   const live = toolMap(createDockerTools({}));
   const fixture = toolMap(createFixtureTools("missing-env"));

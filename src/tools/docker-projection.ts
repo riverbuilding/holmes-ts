@@ -15,6 +15,7 @@ export function mapDockerCommandFailure(result: DockerCommandResult): ToolError 
   if (result.termination === "cancelled") return error("cancelled", "Docker command was cancelled.", false);
   if (result.termination === "spawn-error") return error("unavailable", "Docker is unavailable.", true);
   if (notFound(result.stderr)) return error("not-found", "Docker resource was not found.", false);
+  if (stoppedContainer(result.stderr)) return error("nonzero-exit", "Docker container is not running.", false);
   if (unavailable(result.stderr)) return error("unavailable", "Docker is unavailable.", true);
   return error("nonzero-exit", "Docker command failed.", false);
 }
@@ -379,5 +380,6 @@ function compareImageRows(left: JsonObject, right: JsonObject): number {
 function compareProcessRows(left: JsonObject, right: JsonObject): number { return compareStrings(JSON.stringify(left.fields), JSON.stringify(right.fields)); }
 function compareDiffRows(left: JsonObject, right: JsonObject): number { return compareStrings(String(left.path), String(right.path)) || compareStrings(String(left.action), String(right.action)); }
 function notFound(stderr: string): boolean { return /no such (container|object|image)|not found/i.test(stderr); }
+function stoppedContainer(stderr: string): boolean { return /container .+ is not running|container is not running/i.test(stderr); }
 function unavailable(stderr: string): boolean { return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|connection refused|error during connect/i.test(stderr); }
 function splitTableLine(line: string): string[] { return line.trim().split(/(?:\t+| {2,})/); }

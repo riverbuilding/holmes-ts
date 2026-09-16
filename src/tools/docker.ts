@@ -1,6 +1,6 @@
 import { DEFAULT_LIMITS, type JsonObject, type ToolExecutionResult, type ToolRegistration } from "../core/types.js";
 import type { DockerCli } from "./docker-cli.js";
-import { projectContainerRows, projectEvents, projectImageHistory, projectImageRows, projectInspect, projectLogs } from "./docker-projection.js";
+import { projectContainerRows, projectDiffRows, projectEvents, projectImageHistory, projectImageRows, projectInspect, projectLogs, projectProcessRows } from "./docker-projection.js";
 import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWindow } from "./validation.js";
 
 export interface DockerScope {
@@ -28,10 +28,10 @@ export function createDockerTools(scope: DockerScope): ToolRegistration[] {
     containerDiscoveryTool("docker_ps_all", "List all Docker containers, including stopped ones", true, scope),
     dockerInspectTool(scope),
     dockerLogsTool(scope),
-    resourceTool("docker_top", "Display the running processes of a container", "container_id"),
+    dockerTopTool(scope),
     dockerEventsTool(scope),
     dockerHistoryTool(scope),
-    resourceTool("docker_diff", "Inspect changes to files or directories on a container's filesystem", "container_id")
+    dockerDiffTool(scope)
   ];
 }
 
@@ -85,6 +85,27 @@ function dockerImagesTool(scope: DockerScope): ToolRegistration<Record<string, n
         scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
       );
       return projectImageRows(command, new Date().toISOString(), MAX_ROWS);
+    }
+  };
+}
+
+function dockerTopTool(scope: DockerScope): ToolRegistration<{ container_id: string }> {
+  return {
+    name: "docker_top", description: "Display the running processes of a container",
+    parameters: objectSchema({ container_id: { type: "string", minLength: 1 } }, ["container_id"]),
+    parseArguments(input) {
+      const arguments_ = objectShape(input, ["container_id"]);
+      return { container_id: identifier(arguments_.container_id, "container_id") };
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "container-top", container: arguments_.container_id },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectProcessRows(command, new Date().toISOString(), MAX_ROWS);
     }
   };
 }
@@ -174,6 +195,27 @@ function dockerHistoryTool(scope: DockerScope): ToolRegistration<DockerHistoryAr
         scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
       );
       return projectImageHistory(command, new Date().toISOString(), arguments_.limit);
+    }
+  };
+}
+
+function dockerDiffTool(scope: DockerScope): ToolRegistration<{ container_id: string }> {
+  return {
+    name: "docker_diff", description: "Inspect changes to files or directories on a container's filesystem",
+    parameters: objectSchema({ container_id: { type: "string", minLength: 1 } }, ["container_id"]),
+    parseArguments(input) {
+      const arguments_ = objectShape(input, ["container_id"]);
+      return { container_id: identifier(arguments_.container_id, "container_id") };
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "container-diff", container: arguments_.container_id },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectDiffRows(command, new Date().toISOString(), MAX_ROWS);
     }
   };
 }
