@@ -72,8 +72,8 @@ if the default route does not support tool calls.
 - `src/tests/`: also retains Phase 1 contract/schema/registry/provider tests.
 - `fixtures/`: fixed observations for `missing-env`, `unhealthy-container`,
   `insufficient-evidence`, `image-regression`, and `writable-layer-change`.
-- `examples/docker/`: disposable crashed/unhealthy Compose demonstration for
-  lifecycle validation.
+- `examples/docker/`: disposable crashed/unhealthy/writable Compose
+  demonstration for lifecycle and image/runtime validation.
 - `examples/kubernetes/`: legacy empty placeholder; Kubernetes is out of scope.
 
 ## Documentation
@@ -84,6 +84,7 @@ if the default route does not support tool calls.
 - [Phase 3 safe Docker lifecycle implementation slices](docs/phase-3-implementation-slices.md)
 - [Phase 3 live-Docker validation record](docs/phase-3-live-docker-validation.md)
 - [Phase 4 image and runtime implementation slices](docs/phase-4-implementation-slices.md)
+- [Phase 4 live-Docker validation record](docs/phase-4-live-docker-validation.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)

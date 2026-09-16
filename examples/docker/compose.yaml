@@ -22,3 +22,10 @@ services:
       timeout: 1s
       retries: 1
       start_period: 0s
+
+  writable:
+    image: alpine:3.21
+    command:
+      - sh
+      - -c
+      - mkdir -p /tmp/holmes-validation && printf 'validation\n' > /tmp/holmes-validation/marker && while true; do sleep 1; done
