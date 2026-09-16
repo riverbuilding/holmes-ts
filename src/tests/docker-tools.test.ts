@@ -44,6 +44,53 @@ test("discovery maps daemon failures and applies the fixed row limit", async () 
   assert.equal(JSON.parse(limitedResult.content).containers.length, 100);
 });
 
+test("docker_images uses the fixed image-list operation and shared image projection", async () => {
+  const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
+  const cli = {
+    async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
+      calls.push({ operation, context, timeoutMs });
+      return completed([
+        JSON.stringify({ Repository: "checkout", Tag: "1.4", ID: "sha256:checkout", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", Size: "12MB" }),
+        JSON.stringify({ Repository: "<none>", Tag: "<none>", ID: "sha256:stale", CreatedAt: "2026-09-15 11:00:00", CreatedSince: "two hours ago", Size: "8MB", Labels: { token: "never-visible" } })
+      ].join("\n"));
+    }
+  };
+  const images = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_images");
+  const result = await images.execute(images.parseArguments({}), new AbortController().signal);
+
+  assert.deepEqual(calls, [{ operation: { kind: "image-ls" }, context: "team-dev", timeoutMs: 321 }]);
+  assert.equal(result.status, "success");
+  assert.deepEqual(JSON.parse(result.content), {
+    images: [
+      { id: "sha256:stale", createdAt: "2026-09-15 11:00:00", createdSince: "two hours ago", size: "8MB", dangling: true },
+      { id: "sha256:checkout", repository: "checkout", tag: "1.4", createdAt: "2026-09-15 12:00:00", createdSince: "one hour ago", size: "12MB", dangling: false }
+    ]
+  });
+  assert.doesNotMatch(JSON.stringify(result), /never-visible/);
+});
+
+test("docker_images maps malformed and daemon failures to structured errors", async () => {
+  const malformed = {
+    async execute(): Promise<DockerCommandResult> {
+      return completed('{"Repository":"checkout"}');
+    }
+  };
+  const images = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_images");
+  assert.deepEqual(await images.execute({}, new AbortController().signal), {
+    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
+  });
+
+  const unavailable = {
+    async execute(): Promise<DockerCommandResult> {
+      return { stdout: "", stderr: "Cannot connect to the Docker daemon at unix:///private.sock", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+    }
+  };
+  const unavailableImages = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: unavailable })), "docker_images");
+  assert.deepEqual(await unavailableImages.execute({}, new AbortController().signal), {
+    status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true
+  });
+});
+
 test("fixtures share discovery schemas and execute without a Docker CLI", async () => {
   const live = toolMap(createDockerTools({}));
   const fixture = toolMap(createFixtureTools("missing-env"));
@@ -122,6 +169,51 @@ test("inspect fixtures use the same schemas and container/image projector", asyn
   assert.deepEqual(JSON.parse(imageResult.content), {
     kind: "image", id: "sha256:checkout", tags: ["checkout:1.4"], createdAt: "2026-09-15T00:00:00.000Z", architecture: "amd64", os: "linux",
     command: ["node", "server.js"], labels: { password: "<withheld>", service: "checkout" }
+  });
+});
+
+test("docker_history uses the fixed image operation, requested limit, and safe projection", async () => {
+  const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
+  const cli = {
+    async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
+      calls.push({ operation, context, timeoutMs });
+      return completed([
+        JSON.stringify({ ID: "sha256:new", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", CreatedBy: "/bin/sh -c #(nop)  CMD [\"node\" \"server.js\"]", Size: "0B", Comment: "" }),
+        JSON.stringify({ ID: "sha256:old", CreatedAt: "2026-09-15 10:00:00", CreatedSince: "three hours ago", CreatedBy: "/bin/sh -c RUN token=never-visible", Size: "4MB", Comment: "release" })
+      ].join("\n"));
+    }
+  };
+  const history = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_history");
+  const result = await history.execute(history.parseArguments({ image_id: "checkout:1.4", limit: 1 }), new AbortController().signal);
+
+  assert.deepEqual(calls, [{ operation: { kind: "image-history", image: "checkout:1.4" }, context: "team-dev", timeoutMs: 321 }]);
+  assert.equal(result.status, "success");
+  assert.deepEqual(JSON.parse(result.content), {
+    history: [{ id: "sha256:new", createdAt: "2026-09-15 12:00:00", createdSince: "one hour ago", size: "0B", comment: "", commandKind: "cmd" }]
+  });
+  assert.deepEqual(result.truncation, { truncated: true, reason: "row-limit", originalItemCount: 2, retainedItemCount: 1 });
+  assert.doesNotMatch(JSON.stringify(result), /never-visible|server\.js/);
+});
+
+test("docker_history maps missing images and malformed output to structured errors", async () => {
+  const missing = {
+    async execute(): Promise<DockerCommandResult> {
+      return { stdout: "", stderr: "Error response from daemon: No such image: missing", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+    }
+  };
+  const history = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_history");
+  assert.deepEqual(await history.execute(history.parseArguments({ image_id: "missing" }), new AbortController().signal), {
+    status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false
+  });
+
+  const malformed = {
+    async execute(): Promise<DockerCommandResult> {
+      return completed("not-json");
+    }
+  };
+  const malformedHistory = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_history");
+  assert.deepEqual(await malformedHistory.execute(malformedHistory.parseArguments({ image_id: "checkout:1.4" }), new AbortController().signal), {
+    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
   });
 });
 

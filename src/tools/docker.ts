@@ -1,6 +1,6 @@
 import { DEFAULT_LIMITS, type JsonObject, type ToolExecutionResult, type ToolRegistration } from "../core/types.js";
 import type { DockerCli } from "./docker-cli.js";
-import { projectContainerRows, projectEvents, projectInspect, projectLogs } from "./docker-projection.js";
+import { projectContainerRows, projectEvents, projectImageHistory, projectImageRows, projectInspect, projectLogs } from "./docker-projection.js";
 import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWindow } from "./validation.js";
 
 export interface DockerScope {
@@ -23,14 +23,14 @@ const MAX_EVENT_WINDOW_MS = 24 * 60 * 60 * 1_000;
  */
 export function createDockerTools(scope: DockerScope): ToolRegistration[] {
   return [
-    noArgumentTool("docker_images", "List all Docker images"),
+    dockerImagesTool(scope),
     containerDiscoveryTool("docker_ps", "List all running Docker containers", false, scope),
     containerDiscoveryTool("docker_ps_all", "List all Docker containers, including stopped ones", true, scope),
     dockerInspectTool(scope),
     dockerLogsTool(scope),
     resourceTool("docker_top", "Display the running processes of a container", "container_id"),
     dockerEventsTool(scope),
-    dockerHistoryTool(),
+    dockerHistoryTool(scope),
     resourceTool("docker_diff", "Inspect changes to files or directories on a container's filesystem", "container_id")
   ];
 }
@@ -72,8 +72,21 @@ function dockerInspectTool(scope: DockerScope): ToolRegistration<{ container_or_
   };
 }
 
-function noArgumentTool(name: string, description: string): ToolRegistration<Record<string, never>> {
-  return { name, description, parameters: objectSchema({}), parseArguments(input) { objectShape(input, []); return {}; }, execute: unavailable };
+function dockerImagesTool(scope: DockerScope): ToolRegistration<Record<string, never>> {
+  return {
+    name: "docker_images", description: "List all Docker images",
+    parameters: objectSchema({}), parseArguments(input) { objectShape(input, []); return {}; },
+    async execute(_arguments, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "image-ls" },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectImageRows(command, new Date().toISOString(), MAX_ROWS);
+    }
+  };
 }
 
 function resourceTool(name: string, description: string, field: "container_id" | "image_id" | "container_or_image_id"): ToolRegistration<Record<typeof field, string>> {
@@ -144,14 +157,24 @@ function validateHistoricalEventWindow(since: string, until: string, now: () => 
   if (untilMs - sinceMs > MAX_EVENT_WINDOW_MS) throw new Error("Event window must not exceed 24 hours.");
 }
 
-function dockerHistoryTool(): ToolRegistration<DockerHistoryArguments> {
+function dockerHistoryTool(scope: DockerScope): ToolRegistration<DockerHistoryArguments> {
   return {
     name: "docker_history", description: "Show the history of an image",
     parameters: objectSchema({ image_id: { type: "string", minLength: 1 }, limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS } }, ["image_id"]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["image_id", "limit"]);
       return { image_id: imageReference(arguments_.image_id, "image_id"), limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS) };
-    }, execute: unavailable
+    },
+    async execute(arguments_, signal) {
+      if (scope.context === undefined || scope.cli === undefined) return unavailable();
+      const command = await scope.cli.execute(
+        { kind: "image-history", image: arguments_.image_id },
+        scope.context,
+        signal,
+        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
+      );
+      return projectImageHistory(command, new Date().toISOString(), arguments_.limit);
+    }
   };
 }
 
