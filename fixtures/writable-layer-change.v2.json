@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "collectedAt": "2026-09-15T00:00:00.000Z",
+  "containers": { "running": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:1.4", "State": "running", "Status": "Up 5 minutes" }], "all": [{ "ID": "checkout-api", "Names": "checkout-api", "Image": "checkout:1.4", "State": "running", "Status": "Up 5 minutes" }] },
+  "images": [{ "Repository": "checkout", "Tag": "1.4", "ID": "sha256:checkout", "CreatedAt": "2026-09-14 00:00:00", "CreatedSince": "one day ago", "Size": "24MB" }],
+  "inspect": { "checkout-api": { "Id": "checkout-api", "Name": "/checkout-api", "Created": "2026-09-15T00:00:00.000Z", "State": { "Status": "running", "ExitCode": 0 }, "Config": { "Image": "checkout:1.4", "Labels": { "service": "checkout" } } }, "checkout:1.4": { "Id": "sha256:checkout", "RepoTags": ["checkout:1.4"], "Created": "2026-09-14T00:00:00.000Z", "Architecture": "amd64", "Os": "linux", "Config": { "Cmd": ["node", "server.js"] } } },
+  "logs": { "checkout-api": [] },
+  "events": { "checkout-api": [] },
+  "top": { "checkout-api": "PID  USER  COMMAND\n20  app  node server.js" },
+  "history": { "checkout:1.4": [{ "ID": "sha256:checkout", "CreatedAt": "2026-09-14 00:00:00", "CreatedSince": "one day ago", "CreatedBy": "/bin/sh -c #(nop)  CMD [\"node\"]", "Size": "0B", "Comment": "" }] },
+  "diff": { "checkout-api": ["A /tmp/checkout-cache", "C /var/lib/checkout/state.json"] }
+}

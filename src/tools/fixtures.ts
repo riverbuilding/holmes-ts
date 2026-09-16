@@ -8,15 +8,21 @@ import type {
 import { createDockerTools } from "./docker.js";
 import {
   projectContainerRows,
+  projectDiffRows,
   projectEvents,
+  projectImageHistory,
+  projectImageRows,
   projectInspect,
-  projectLogs
+  projectLogs,
+  projectProcessRows
 } from "./docker-projection.js";
 
 export type FixtureScenario =
   | "missing-env"
   | "unhealthy-container"
-  | "insufficient-evidence";
+  | "insufficient-evidence"
+  | "image-regression"
+  | "writable-layer-change";
 
 interface FixtureObservations {
   readonly collectedAt: string;
@@ -24,9 +30,13 @@ interface FixtureObservations {
     running: readonly JsonObject[];
     all: readonly JsonObject[];
   }>;
+  readonly images: readonly JsonObject[];
   readonly inspect: Readonly<Record<string, JsonObject>>;
   readonly logs: Readonly<Record<string, readonly string[]>>;
   readonly events: Readonly<Record<string, readonly JsonObject[]>>;
+  readonly top: Readonly<Record<string, string>>;
+  readonly history: Readonly<Record<string, readonly JsonObject[]>>;
+  readonly diff: Readonly<Record<string, readonly string[]>>;
 }
 
 interface FixtureLogsArguments {
@@ -77,6 +87,34 @@ export function createFixtureTools(
       };
     }
 
+    if (tool.name === "docker_images") {
+      return {
+        ...tool,
+        async execute(_arguments, _signal) {
+          return projectImageRows(
+            completedJsonLines(observations.images),
+            observations.collectedAt,
+            100
+          );
+        }
+      };
+    }
+
+    if (tool.name === "docker_top") {
+      return {
+        ...tool,
+        async execute(arguments_, _signal) {
+          const containerId = fixtureContainerId(arguments_, "top");
+          const output = observations.top[containerId];
+          return projectProcessRows(
+            output === undefined ? missing(containerId) : completed(output),
+            observations.collectedAt,
+            100
+          );
+        }
+      };
+    }
+
     if (tool.name === "docker_logs") {
       return {
         ...tool,
@@ -109,6 +147,36 @@ export function createFixtureTools(
             completedJsonLines(rows),
             observations.collectedAt,
             fixtureArguments.limit
+          );
+        }
+      };
+    }
+
+    if (tool.name === "docker_history") {
+      return {
+        ...tool,
+        async execute(arguments_, _signal) {
+          const fixtureArguments = fixtureHistoryArguments(arguments_);
+          const rows = observations.history[fixtureArguments.image_id];
+          return projectImageHistory(
+            rows === undefined ? missing(fixtureArguments.image_id) : completedJsonLines(rows),
+            observations.collectedAt,
+            fixtureArguments.limit
+          );
+        }
+      };
+    }
+
+    if (tool.name === "docker_diff") {
+      return {
+        ...tool,
+        async execute(arguments_, _signal) {
+          const containerId = fixtureContainerId(arguments_, "diff");
+          const lines = observations.diff[containerId];
+          return projectDiffRows(
+            lines === undefined ? missing(containerId) : completed(lines.join("\n")),
+            observations.collectedAt,
+            100
           );
         }
       };
@@ -166,8 +234,31 @@ function fixtureInspectResource(arguments_: unknown): string {
   throw new Error("Invalid fixture inspect arguments.");
 }
 
+function fixtureContainerId(arguments_: unknown, tool: "top" | "diff"): string {
+  if (isRecord(arguments_) && typeof arguments_.container_id === "string") {
+    return arguments_.container_id;
+  }
+
+  throw new Error(`Invalid fixture ${tool} arguments.`);
+}
+
+function fixtureHistoryArguments(arguments_: unknown): {
+  readonly image_id: string;
+  readonly limit: number;
+} {
+  if (
+    isRecord(arguments_)
+    && typeof arguments_.image_id === "string"
+    && typeof arguments_.limit === "number"
+  ) {
+    return { image_id: arguments_.image_id, limit: arguments_.limit };
+  }
+
+  throw new Error("Invalid fixture history arguments.");
+}
+
 function loadFixture(scenario: FixtureScenario): FixtureObservations {
-  const filename = `${scenario}.v1.json`;
+  const filename = `${scenario}.v2.json`;
   let parsed: unknown;
 
   try {
@@ -186,28 +277,40 @@ function parseFixture(
 ): FixtureObservations {
   if (
     !isRecord(value)
-    || value.version !== 1
+    || value.version !== 2
     || typeof value.collectedAt !== "string"
     || !isRecord(value.containers)
+    || !Array.isArray(value.images)
     || !isRecord(value.inspect)
     || !isRecord(value.logs)
     || !isRecord(value.events)
+    || !isRecord(value.top)
+    || !isRecord(value.history)
+    || !isRecord(value.diff)
   ) {
     throw invalidFixture(filename);
   }
 
   const running = jsonObjectArray(value.containers.running);
   const all = jsonObjectArray(value.containers.all);
+  const images = jsonObjectArray(value.images);
   const inspect = objectRecord(value.inspect);
   const logs = stringArrayRecord(value.logs);
   const events = objectArrayRecord(value.events);
+  const top = stringRecord(value.top);
+  const history = objectArrayRecord(value.history);
+  const diff = stringArrayRecord(value.diff);
 
   if (
     running === undefined
     || all === undefined
+    || images === undefined
     || inspect === undefined
     || logs === undefined
     || events === undefined
+    || top === undefined
+    || history === undefined
+    || diff === undefined
     || !Number.isFinite(Date.parse(value.collectedAt))
   ) {
     throw invalidFixture(filename);
@@ -216,9 +319,13 @@ function parseFixture(
   return {
     collectedAt: value.collectedAt,
     containers: { running, all },
+    images,
     inspect,
     logs,
-    events
+    events,
+    top,
+    history,
+    diff
   };
 }
 
@@ -331,6 +438,19 @@ function stringArrayRecord(
     ) {
       return undefined;
     }
+    result[key] = entry;
+  }
+
+  return result;
+}
+
+function stringRecord(
+  value: Record<string, unknown>
+): Record<string, string> | undefined {
+  const result: Record<string, string> = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry !== "string") return undefined;
     result[key] = entry;
   }
 

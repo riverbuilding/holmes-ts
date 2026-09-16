@@ -15,6 +15,14 @@ test("ask parsing rejects fixture and Docker context together, and accepts verbo
   assert.deepEqual(parseAskArguments(["ask", "what happened?", "--verbose"]), {
     question: "what happened?", verbose: true
   });
+  assert.equal(
+    parseAskArguments(["ask", "what changed?", "--fixture", "image-regression"]).fixture,
+    "image-regression"
+  );
+  assert.equal(
+    parseAskArguments(["ask", "what changed?", "--fixture", "writable-layer-change"]).fixture,
+    "writable-layer-change"
+  );
 });
 
 test("a live context resolves once before Docker registrations are constructed", async () => {

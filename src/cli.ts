@@ -34,7 +34,7 @@ export function formatVerboseProgress(event: VerboseProgressEvent): string {
 }
 
 function usage(): string {
-  return "Usage: holmes-ts ask <question> [--docker-context <name>] [--fixture <missing-env|unhealthy-container|insufficient-evidence>] [--verbose]";
+  return "Usage: holmes-ts ask <question> [--docker-context <name>] [--fixture <missing-env|unhealthy-container|insufficient-evidence|image-regression|writable-layer-change>] [--verbose]";
 }
 
 export function parseAskArguments(arguments_: string[]): AskArguments {
@@ -62,7 +62,11 @@ export function parseAskArguments(arguments_: string[]): AskArguments {
 }
 
 function isFixtureScenario(value: string): value is FixtureScenario {
-  return value === "missing-env" || value === "unhealthy-container" || value === "insufficient-evidence";
+  return value === "missing-env"
+    || value === "unhealthy-container"
+    || value === "insufficient-evidence"
+    || value === "image-regression"
+    || value === "writable-layer-change";
 }
 
 export interface CliStartupDependencies {

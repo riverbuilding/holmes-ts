@@ -173,6 +173,42 @@ test("fixtures share discovery schemas and execute without a Docker CLI", async 
   ] });
 });
 
+test("all fixtures expose each implemented tool through the live public contract", async () => {
+  const live = toolMap(createDockerTools({}));
+  const scenarios = [
+    "missing-env",
+    "unhealthy-container",
+    "insufficient-evidence",
+    "image-regression",
+    "writable-layer-change"
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const fixture = toolMap(createFixtureTools(scenario));
+    assert.deepEqual([...fixture.keys()], [...live.keys()]);
+    for (const [name, liveTool] of live) {
+      assert.deepEqual(requiredTool(fixture, name).parameters, liveTool.parameters);
+    }
+
+    const invocations: Readonly<Record<string, object>> = {
+      docker_images: {},
+      docker_ps: {},
+      docker_ps_all: {},
+      docker_inspect: { container_or_image_id: "missing" },
+      docker_logs: { container_id: "missing" },
+      docker_top: { container_id: "missing" },
+      docker_events: { since: "2026-09-14T00:00:00Z", until: "2026-09-15T00:00:00Z" },
+      docker_history: { image_id: "missing" },
+      docker_diff: { container_id: "missing" }
+    };
+    for (const [name, arguments_] of Object.entries(invocations)) {
+      const tool = requiredTool(fixture, name);
+      const result = await tool.execute(tool.parseArguments(arguments_), new AbortController().signal);
+      assert.notEqual(result.status === "error" ? result.code : undefined, "unavailable");
+    }
+  }
+});
+
 test("docker_inspect uses one fixed resource operation and projects container secrets safely", async () => {
   const calls: Array<{ operation: unknown; context: string | undefined; timeoutMs: number }> = [];
   const cli = {
@@ -352,6 +388,70 @@ test("logs and events fixtures share schemas and bounded projectors", async () =
   const eventResult = await events.execute(events.parseArguments({ container_id: "checkout-api", since: "2026-09-14T00:00:00Z", until: "2026-09-15T00:00:00Z" }), new AbortController().signal);
   assert.equal(eventResult.status, "success");
   assert.deepEqual(JSON.parse(eventResult.content), { events: [{ timeNano: 1768435201000000000, type: "container", action: "die", resourceId: "checkout-api", resourceName: "checkout-api", image: "checkout:1.4" }] });
+});
+
+test("image-regression fixture projects image evidence without raw history commands", async () => {
+  const fixture = toolMap(createFixtureTools("image-regression"));
+  const images = requiredTool(fixture, "docker_images");
+  const imageResult = await images.execute(images.parseArguments({}), new AbortController().signal);
+  assert.equal(imageResult.status, "success");
+  assert.deepEqual(JSON.parse(imageResult.content), {
+    images: [
+      { id: "sha256:checkout-14", repository: "checkout", tag: "1.4", createdAt: "2026-09-14 00:00:00", createdSince: "one day ago", size: "24MB", dangling: false },
+      { id: "sha256:checkout-15", repository: "checkout", tag: "1.5", createdAt: "2026-09-15 00:00:00", createdSince: "one minute ago", size: "26MB", dangling: false }
+    ]
+  });
+
+  const history = requiredTool(fixture, "docker_history");
+  const historyResult = await history.execute(history.parseArguments({ image_id: "checkout:1.5", limit: 1 }), new AbortController().signal);
+  assert.equal(historyResult.status, "success");
+  assert.deepEqual(JSON.parse(historyResult.content), {
+    history: [{ id: "sha256:layer-new", createdAt: "2026-09-15 00:00:00", createdSince: "one minute ago", size: "2MB", comment: "release", commandKind: "run" }]
+  });
+  assert.deepEqual(historyResult.truncation, { truncated: true, reason: "row-limit", originalItemCount: 2, retainedItemCount: 1 });
+  assert.doesNotMatch(JSON.stringify(historyResult), /never-visible|release=1\.5/);
+});
+
+test("fixtures retain valid empty image, history, and diff observations", async () => {
+  const fixture = toolMap(createFixtureTools("insufficient-evidence"));
+  const images = requiredTool(fixture, "docker_images");
+  const imageResult = await images.execute(images.parseArguments({}), new AbortController().signal);
+  assert.equal(imageResult.status, "success");
+  assert.deepEqual(JSON.parse(imageResult.content), { images: [] });
+
+  const history = requiredTool(fixture, "docker_history");
+  const historyResult = await history.execute(history.parseArguments({ image_id: "checkout:latest" }), new AbortController().signal);
+  assert.equal(historyResult.status, "success");
+  assert.deepEqual(JSON.parse(historyResult.content), { history: [] });
+
+  const diff = requiredTool(fixture, "docker_diff");
+  const diffResult = await diff.execute(diff.parseArguments({ container_id: "checkout-api" }), new AbortController().signal);
+  assert.equal(diffResult.status, "success");
+  assert.deepEqual(JSON.parse(diffResult.content), { changes: [] });
+});
+
+test("writable-layer fixture projects diff and process observations while preserving uncertainty", async () => {
+  const fixture = toolMap(createFixtureTools("writable-layer-change"));
+  const diff = requiredTool(fixture, "docker_diff");
+  const diffResult = await diff.execute(diff.parseArguments({ container_id: "checkout-api" }), new AbortController().signal);
+  assert.equal(diffResult.status, "success");
+  assert.deepEqual(JSON.parse(diffResult.content), {
+    changes: [
+      { action: "added", path: "/tmp/checkout-cache" },
+      { action: "changed", path: "/var/lib/checkout/state.json" }
+    ]
+  });
+
+  const top = requiredTool(fixture, "docker_top");
+  const topResult = await top.execute(top.parseArguments({ container_id: "checkout-api" }), new AbortController().signal);
+  assert.equal(topResult.status, "success");
+  assert.deepEqual(JSON.parse(topResult.content), {
+    headers: ["PID", "USER", "COMMAND"],
+    processes: [{ fields: ["20", "app", "node server.js"] }]
+  });
+
+  const missing = await diff.execute(diff.parseArguments({ container_id: "missing" }), new AbortController().signal);
+  assert.deepEqual(missing, { status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false });
 });
 
 function completed(stdout: string): DockerCommandResult {

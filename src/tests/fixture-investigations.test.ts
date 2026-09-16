@@ -51,6 +51,35 @@ test("insufficient-evidence fixture retains observations and does not turn missi
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
 });
 
+test("image-regression fixture walks image discovery, inspect, and bounded history", async () => {
+  const result = await run("image-regression", [
+    call("docker_images", {}),
+    call("docker_inspect", { container_or_image_id: "checkout:1.5" }),
+    call("docker_history", { image_id: "checkout:1.5", limit: 1 })
+  ], "The image inventory and inspect observation identify checkout:1.5, and the retained history reports one recent layer observation [E1] [E2] [E3].");
+
+  assert.equal(result.result.complete, true);
+  assert.deepEqual(result.calls, ["docker_images", "docker_inspect", "docker_history"]);
+  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.doesNotMatch(result.result.answer, /caused by|regression is proven/i);
+  assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
+});
+
+test("writable-layer fixture distinguishes observed paths from a causal explanation", async () => {
+  const result = await run("writable-layer-change", [
+    call("docker_ps", {}),
+    call("docker_inspect", { container_or_image_id: "checkout-api" }),
+    call("docker_diff", { container_id: "checkout-api" }),
+    call("docker_top", { container_id: "checkout-api" })
+  ], "checkout-api is running and its writable layer contains two observed paths, but these observations do not establish what caused the change [E1] [E2] [E3] [E4].");
+
+  assert.equal(result.result.complete, true);
+  assert.deepEqual(result.calls, ["docker_ps", "docker_inspect", "docker_diff", "docker_top"]);
+  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.doesNotMatch(result.result.answer, /because|caused by/i);
+  assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
+});
+
 function call(name: string, arguments_: object): AssistantResponse {
   return { content: `Calling ${name}.`, toolCalls: [{ id: `call-${name}`, name, arguments: arguments_ }] };
 }

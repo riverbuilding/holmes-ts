@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "collectedAt": "2026-09-15T00:00:00.000Z",
+  "containers": { "running": [], "all": [] },
+  "images": [{ "Repository": "checkout", "Tag": "1.5", "ID": "sha256:checkout-15", "CreatedAt": "2026-09-15 00:00:00", "CreatedSince": "one minute ago", "Size": "26MB" }, { "Repository": "checkout", "Tag": "1.4", "ID": "sha256:checkout-14", "CreatedAt": "2026-09-14 00:00:00", "CreatedSince": "one day ago", "Size": "24MB" }],
+  "inspect": { "checkout:1.5": { "Id": "sha256:checkout-15", "RepoTags": ["checkout:1.5"], "Created": "2026-09-15T00:00:00.000Z", "Architecture": "amd64", "Os": "linux", "Config": { "Cmd": ["node", "server.js"], "Labels": { "service": "checkout" } } } },
+  "logs": {},
+  "events": {},
+  "top": {},
+  "history": { "checkout:1.5": [{ "ID": "sha256:layer-new", "CreatedAt": "2026-09-15 00:00:00", "CreatedSince": "one minute ago", "CreatedBy": "/bin/sh -c RUN release=1.5 token=never-visible", "Size": "2MB", "Comment": "release" }, { "ID": "sha256:layer-base", "CreatedAt": "2026-09-14 00:00:00", "CreatedSince": "one day ago", "CreatedBy": "/bin/sh -c #(nop)  CMD [\"node\"]", "Size": "0B", "Comment": "" }] },
+  "diff": {}
+}
