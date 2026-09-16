@@ -1,6 +1,8 @@
 import type { DockerCommandResult, JsonObject, JsonValue, ToolError, ToolExecutionResult, ToolSuccess, Truncation } from "../core/types.js";
 
 const SENSITIVE_LABEL_KEY = /secret|token|password|passwd|credential|auth|key/i;
+const CONTROL_CHARACTER = /[\0-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+const MAX_PROCESS_FIELDS = 32;
 
 export class DockerProjectionError extends Error {
   public readonly name = "DockerProjectionError";
@@ -65,6 +67,55 @@ export function projectContainerRows(result: DockerCommandResult, collectedAt: s
   }
 }
 
+export function projectImageRows(result: DockerCommandResult, collectedAt: string, maxRows: number): ToolExecutionResult {
+  const failure = mapDockerCommandFailure(result);
+  if (failure !== undefined) return failure;
+  try {
+    const rows = parseJsonLines(result.stdout).map(projectImageRow).sort(compareImageRows);
+    const limited = limitRows(rows, maxRows);
+    return success("docker-images", { images: limited.values }, collectedAt, limited.truncation ?? captureTruncation(result));
+  } catch (error_) {
+    return projectionFailure(error_);
+  }
+}
+
+export function projectProcessRows(result: DockerCommandResult, collectedAt: string, maxRows: number): ToolExecutionResult {
+  const failure = mapDockerCommandFailure(result);
+  if (failure !== undefined) return failure;
+  try {
+    const table = parseProcessTable(result.stdout);
+    const rows = table.rows.sort(compareProcessRows);
+    const limited = limitRows(rows, maxRows);
+    return success("docker-top", { headers: table.headers, processes: limited.values }, collectedAt, limited.truncation ?? captureTruncation(result));
+  } catch (error_) {
+    return projectionFailure(error_);
+  }
+}
+
+export function projectImageHistory(result: DockerCommandResult, collectedAt: string, maxRows: number): ToolExecutionResult {
+  const failure = mapDockerCommandFailure(result);
+  if (failure !== undefined) return failure;
+  try {
+    const rows = parseJsonLines(result.stdout).map(projectHistoryRow);
+    const limited = limitRows(rows, maxRows);
+    return success("docker-history", { history: limited.values }, collectedAt, limited.truncation ?? captureTruncation(result));
+  } catch (error_) {
+    return projectionFailure(error_);
+  }
+}
+
+export function projectDiffRows(result: DockerCommandResult, collectedAt: string, maxRows: number): ToolExecutionResult {
+  const failure = mapDockerCommandFailure(result);
+  if (failure !== undefined) return failure;
+  try {
+    const rows = parseDiffLines(result.stdout).sort(compareDiffRows);
+    const limited = limitRows(rows, maxRows);
+    return success("docker-diff", { changes: limited.values }, collectedAt, limited.truncation ?? captureTruncation(result));
+  } catch (error_) {
+    return projectionFailure(error_);
+  }
+}
+
 export function projectEvents(result: DockerCommandResult, collectedAt: string, maxRows: number): ToolExecutionResult {
   const failure = mapDockerCommandFailure(result);
   if (failure !== undefined) return failure;
@@ -117,6 +168,36 @@ function projectContainerRow(row: JsonObject): JsonObject {
     health: stringAt(row, "Health"),
     labels: safeLabels(row.Labels)
   });
+}
+
+function projectImageRow(row: JsonObject): JsonObject {
+  const repository = requiredString(row, "Repository");
+  const tag = requiredString(row, "Tag");
+  const id = requiredString(row, "ID");
+  const createdAt = requiredString(row, "CreatedAt");
+  const createdSince = requiredString(row, "CreatedSince");
+  const size = requiredString(row, "Size");
+  const dangling = repository === "<none>" || tag === "<none>";
+  return compact({
+    id,
+    repository: repository === "<none>" ? undefined : repository,
+    tag: tag === "<none>" ? undefined : tag,
+    createdAt,
+    createdSince,
+    size,
+    dangling
+  });
+}
+
+function projectHistoryRow(row: JsonObject): JsonObject {
+  return {
+    id: requiredString(row, "ID"),
+    createdAt: requiredString(row, "CreatedAt"),
+    createdSince: requiredString(row, "CreatedSince"),
+    size: requiredString(row, "Size"),
+    comment: requiredString(row, "Comment", true),
+    commandKind: historyCommandKind(requiredString(row, "CreatedBy", true))
+  };
 }
 
 function projectEvent(row: JsonObject): JsonObject {
@@ -211,12 +292,45 @@ function safeLabels(value: JsonValue | undefined): JsonObject | undefined {
   return Object.keys(labels).length === 0 ? undefined : labels;
 }
 
+export function parseProcessTable(output: string): { headers: string[]; rows: JsonObject[] } {
+  const lines = output.split(/\r?\n/);
+  if (lines.at(-1) === "") lines.pop();
+  if (lines.length === 0) throw new DockerProjectionError();
+  if (lines.some((line) => line === "" || CONTROL_CHARACTER.test(line))) throw new DockerProjectionError();
+  const headers = splitTableLine(lines[0]);
+  if (headers.length === 0 || headers.length > MAX_PROCESS_FIELDS || headers.some((header) => header === "" || CONTROL_CHARACTER.test(header)) || new Set(headers).size !== headers.length) throw new DockerProjectionError();
+  const rows = lines.slice(1).map((line) => {
+    const fields = splitTableLine(line);
+    if (fields.length !== headers.length || fields.some((field) => field === "" || CONTROL_CHARACTER.test(field))) throw new DockerProjectionError();
+    return { fields };
+  });
+  return { headers, rows };
+}
+
+export function parseDiffLines(output: string): JsonObject[] {
+  const lines = output.split(/\r?\n/);
+  if (lines.at(-1) === "") lines.pop();
+  if (lines.length === 0) return [];
+  return lines.map((line) => {
+    const match = /^([ACD]) (.+)$/.exec(line);
+    if (match === null || !match[2].startsWith("/") || CONTROL_CHARACTER.test(line)) throw new DockerProjectionError();
+    const action = match[1] === "A" ? "added" : match[1] === "C" ? "changed" : "deleted";
+    return { action, path: match[2] };
+  });
+}
+
 function success(resource: string, attributes: JsonObject, collectedAt: string, truncation?: Truncation): ToolSuccess {
   return { status: "success", content: JSON.stringify(attributes), metadata: { resource, collectedAt, attributes }, ...(truncation === undefined ? {} : { truncation }) };
 }
 
 function limitRows<T>(values: readonly T[], maximum: number): { values: T[]; truncation?: Truncation } {
   return limitItems(values, maximum, "row-limit");
+}
+
+function projectionFailure(error_: unknown): ToolError {
+  return error_ instanceof DockerProjectionError
+    ? error("malformed-output", "Docker returned malformed output.", false)
+    : error("internal", "Docker result projection failed.", false);
 }
 
 function limitItems<T>(values: readonly T[], maximum: number, reason: "row-limit" | "line-limit"): { values: T[]; truncation?: Truncation } {
@@ -241,8 +355,29 @@ function compact(value: Record<string, JsonValue | undefined>): JsonObject {
   for (const [key, item] of Object.entries(value)) if (item !== undefined) result[key] = item;
   return result;
 }
+function requiredString(row: JsonObject, key: string, allowEmpty = false): string {
+  const value = row[key];
+  if (typeof value !== "string" || CONTROL_CHARACTER.test(value) || (!allowEmpty && value.trim() === "")) throw new DockerProjectionError();
+  return value;
+}
+function historyCommandKind(createdBy: string): string {
+  const command = createdBy.replace(/^\/bin\/sh -c\s+(?:#\(nop\)\s+)?/i, "").trim().toLowerCase();
+  if (command.startsWith("run ")) return "run";
+  if (command.startsWith("copy ") || command.startsWith("add ")) return "copy";
+  if (command.startsWith("entrypoint ")) return "entrypoint";
+  if (command.startsWith("cmd ")) return "cmd";
+  return "other";
+}
+function compareStrings(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
 function compareContainerRows(left: JsonObject, right: JsonObject): number { return String(left.name ?? left.id ?? "").localeCompare(String(right.name ?? right.id ?? "")); }
 function compareEvents(left: JsonObject, right: JsonObject): number { return `${left.timeNano ?? ""}:${left.resourceId ?? ""}`.localeCompare(`${right.timeNano ?? ""}:${right.resourceId ?? ""}`); }
+function compareImageRows(left: JsonObject, right: JsonObject): number {
+  return compareStrings(String(left.repository ?? ""), String(right.repository ?? ""))
+    || compareStrings(String(left.tag ?? ""), String(right.tag ?? ""))
+    || compareStrings(String(left.id), String(right.id));
+}
+function compareProcessRows(left: JsonObject, right: JsonObject): number { return compareStrings(JSON.stringify(left.fields), JSON.stringify(right.fields)); }
+function compareDiffRows(left: JsonObject, right: JsonObject): number { return compareStrings(String(left.path), String(right.path)) || compareStrings(String(left.action), String(right.action)); }
 function notFound(stderr: string): boolean { return /no such (container|object|image)|not found/i.test(stderr); }
 function unavailable(stderr: string): boolean { return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|connection refused|error during connect/i.test(stderr); }
 function splitTableLine(line: string): string[] { return line.trim().split(/(?:\t+| {2,})/); }

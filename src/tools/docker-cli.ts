@@ -9,6 +9,10 @@ export type DockerCliOperation =
   | { readonly kind: "context-show" }
   | { readonly kind: "context-inspect"; readonly context: string }
   | { readonly kind: "container-ls"; readonly all: boolean }
+  | { readonly kind: "image-ls" }
+  | { readonly kind: "container-top"; readonly container: string }
+  | { readonly kind: "image-history"; readonly image: string }
+  | { readonly kind: "container-diff"; readonly container: string }
   | { readonly kind: "inspect"; readonly resource: string }
   | { readonly kind: "container-logs"; readonly container: string; readonly tail: number }
   | { readonly kind: "events"; readonly since: string; readonly until: string; readonly container?: string };
@@ -196,6 +200,10 @@ function commandArguments(operation: DockerCliOperation, pinnedContext: string |
     case "context-show": return ["context", "show"];
     case "context-inspect": return ["context", "inspect", operation.context];
     case "container-ls": return withContext(pinnedContext, ["container", "ls", ...(operation.all ? ["--all"] : []), "--format", "{{json .}}"]);
+    case "image-ls": return withContext(pinnedContext, ["image", "ls", "--format", "{{json .}}"]);
+    case "container-top": return withContext(pinnedContext, ["container", "top", operation.container]);
+    case "image-history": return withContext(pinnedContext, ["image", "history", "--format", "{{json .}}", operation.image]);
+    case "container-diff": return withContext(pinnedContext, ["container", "diff", operation.container]);
     case "inspect": return withContext(pinnedContext, ["inspect", operation.resource]);
     case "container-logs": return withContext(pinnedContext, ["container", "logs", "--timestamps", "--tail", String(operation.tail), operation.container]);
     case "events": return withContext(pinnedContext, ["events", "--since", operation.since, "--until", operation.until, "--format", "{{json .}}", ...(operation.container === undefined ? [] : ["--filter", `container=${operation.container}`])]);

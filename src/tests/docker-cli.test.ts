@@ -67,6 +67,30 @@ test("container discovery has fixed JSON output formatting and an optional fixed
   ]);
 });
 
+test("Phase 4 reads use complete fixed argv arrays with the pinned context", async () => {
+  const launcher = new FakeLauncher();
+  const cli = new DockerCli({ launcher: launcher.launch });
+  const operations = [
+    { kind: "image-ls" } as const,
+    { kind: "container-top", container: "checkout-api" } as const,
+    { kind: "image-history", image: "checkout:1.4" } as const,
+    { kind: "container-diff", container: "checkout-api" } as const
+  ];
+
+  for (const operation of operations) {
+    const pending = cli.execute(operation, "team-dev", new AbortController().signal, 100);
+    requiredProcess(launcher).close(0);
+    await pending;
+  }
+
+  assert.deepEqual(launcher.calls.map((call) => call.arguments_), [
+    ["--context", "team-dev", "image", "ls", "--format", "{{json .}}"],
+    ["--context", "team-dev", "container", "top", "checkout-api"],
+    ["--context", "team-dev", "image", "history", "--format", "{{json .}}", "checkout:1.4"],
+    ["--context", "team-dev", "container", "diff", "checkout-api"]
+  ]);
+});
+
 test("inspect accepts one resource as a fixed positional argument", async () => {
   const launcher = new FakeLauncher();
   const cli = new DockerCli({ launcher: launcher.launch });

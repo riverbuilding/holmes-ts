@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { DockerCommandResult, ToolSuccess } from "../core/types.js";
-import { mapDockerCommandFailure, parseJsonLines, parseTable, projectContainerRows, projectEvents, projectInspect, projectLogs } from "../tools/docker-projection.js";
+import type { DockerCommandResult, ToolExecutionResult, ToolSuccess } from "../core/types.js";
+import { mapDockerCommandFailure, parseDiffLines, parseJsonLines, parseProcessTable, parseTable, projectContainerRows, projectDiffRows, projectEvents, projectImageHistory, projectImageRows, projectInspect, projectLogs, projectProcessRows } from "../tools/docker-projection.js";
 
 function completed(stdout: string, outputTruncated = false): DockerCommandResult {
   return { stdout, stderr: "", exitCode: 0, durationMs: 4, termination: "completed", outputTruncated };
@@ -31,6 +31,71 @@ test("container rows are allowlisted, sorted, and row-limited before evidence re
   assert.equal(success.content, "{\"containers\":[{\"id\":\"a\",\"name\":\"alpha\",\"image\":\"api:v1\",\"labels\":{\"api_token\":\"<withheld>\",\"team\":\"platform\"}}]}");
   assert.deepEqual(success.truncation, { truncated: true, reason: "row-limit", originalItemCount: 2, retainedItemCount: 1 });
   assert.doesNotMatch(JSON.stringify(success), /do-not-leak|DB_PASSWORD/);
+});
+
+test("image rows are allowlisted, sorted, and independently row-limited", () => {
+  const result = projectImageRows(completed([
+    JSON.stringify({ Repository: "zebra", Tag: "v2", ID: "sha256:z", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", Size: "12MB", Labels: { token: "hidden" } }),
+    JSON.stringify({ Repository: "<none>", Tag: "<none>", ID: "sha256:d", CreatedAt: "2026-09-15 11:00:00", CreatedSince: "two hours ago", Size: "8MB", Config: { password: "hidden" } }),
+    JSON.stringify({ Repository: "alpha", Tag: "v1", ID: "sha256:a", CreatedAt: "2026-09-15 10:00:00", CreatedSince: "three hours ago", Size: "4MB" })
+  ].join("\n")), "2026-09-15T12:00:00Z", 2);
+  const success = requiredSuccess(result);
+
+  assert.deepEqual(JSON.parse(success.content), {
+    images: [
+      { id: "sha256:d", createdAt: "2026-09-15 11:00:00", createdSince: "two hours ago", size: "8MB", dangling: true },
+      { id: "sha256:a", repository: "alpha", tag: "v1", createdAt: "2026-09-15 10:00:00", createdSince: "three hours ago", size: "4MB", dangling: false }
+    ]
+  });
+  assert.deepEqual(success.truncation, { truncated: true, reason: "row-limit", originalItemCount: 3, retainedItemCount: 2 });
+  assert.doesNotMatch(JSON.stringify(success), /hidden/);
+});
+
+test("history allowlists values and retains Docker newest-to-oldest order", () => {
+  const result = projectImageHistory(completed([
+    JSON.stringify({ ID: "sha256:new", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", CreatedBy: "/bin/sh -c #(nop)  CMD [\"node\" \"server.js\"]", Size: "0B", Comment: "" }),
+    JSON.stringify({ ID: "sha256:old", CreatedAt: "2026-09-15 10:00:00", CreatedSince: "three hours ago", CreatedBy: "/bin/sh -c RUN token=never-visible", Size: "4MB", Comment: "release note" })
+  ].join("\n")), "2026-09-15T12:00:00Z", 1);
+  const success = requiredSuccess(result);
+
+  assert.deepEqual(JSON.parse(success.content), { history: [{ id: "sha256:new", createdAt: "2026-09-15 12:00:00", createdSince: "one hour ago", size: "0B", comment: "", commandKind: "cmd" }] });
+  assert.equal(success.truncation?.reason, "row-limit");
+  assert.doesNotMatch(JSON.stringify(success), /server\.js|never-visible/);
+});
+
+test("process tables preserve dynamic headers and fields while rejecting invalid layouts", () => {
+  const result = projectProcessRows(completed("PID  USER  TIME  COMMAND\n20  app  0:01  node server.js\n10  root  0:02  sleep 1\n"), "2026-09-15T12:00:00Z", 1);
+  const success = requiredSuccess(result);
+  assert.deepEqual(JSON.parse(success.content), { headers: ["PID", "USER", "TIME", "COMMAND"], processes: [{ fields: ["10", "root", "0:02", "sleep 1"] }] });
+  assert.equal(success.truncation?.reason, "row-limit");
+  assert.throws(() => parseProcessTable("PID  PID\n1  2\n"), /malformed output/);
+  assert.throws(() => parseProcessTable("PID  USER\n1\n"), /malformed output/);
+  assert.throws(() => parseProcessTable("PID\u0000  USER\n1  app\n"), /malformed output/);
+});
+
+test("diff rows are normalized, sorted, and reject malformed paths", () => {
+  const result = projectDiffRows(completed("C /var/lib/éclair\nD /tmp/file with spaces\nA /app/new\n"), "2026-09-15T12:00:00Z", 2);
+  const success = requiredSuccess(result);
+  assert.deepEqual(JSON.parse(success.content), { changes: [{ action: "added", path: "/app/new" }, { action: "deleted", path: "/tmp/file with spaces" }] });
+  assert.equal(success.truncation?.reason, "row-limit");
+  assert.throws(() => parseDiffLines("X /app/file"), /malformed output/);
+  assert.throws(() => parseDiffLines("A relative/file"), /malformed output/);
+  assert.throws(() => parseDiffLines("A  /app/file"), /malformed output/);
+});
+
+test("new projectors reject malformed records and preserve capture truncation", () => {
+  assert.deepEqual(projectImageRows(completed('{"Repository":"api"}', true), "2026-09-15T12:00:00Z", 100), {
+    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
+  });
+  const history = requiredSuccess(projectImageHistory(completed(JSON.stringify({ ID: "a", CreatedAt: "now", CreatedSince: "now", CreatedBy: "RUN echo safe", Size: "0B", Comment: "" }), true), "2026-09-15T12:00:00Z", 100));
+  assert.deepEqual(history.truncation, { truncated: true, reason: "character-limit" });
+  assert.deepEqual(projectDiffRows(completed("A /safe\n\n"), "2026-09-15T12:00:00Z", 100), {
+    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
+  });
+  const rows = Array.from({ length: 101 }, (_, index) => `A /app/${String(index).padStart(3, "0")}`).join("\n");
+  const diff = requiredSuccess(projectDiffRows(completed(rows), "2026-09-15T12:00:00Z", 100));
+  assert.equal(JSON.parse(diff.content).changes.length, 100);
+  assert.deepEqual(diff.truncation, { truncated: true, reason: "row-limit", originalItemCount: 101, retainedItemCount: 100 });
 });
 
 test("inspect projection omits environment and raw config while withholding sensitive labels", () => {
@@ -106,7 +171,7 @@ test("malformed and capture-truncated output is represented without raw data", (
   });
 });
 
-function requiredSuccess(result: ReturnType<typeof projectContainerRows> | ReturnType<typeof projectEvents> | ReturnType<typeof projectLogs> | ReturnType<typeof projectInspect>): ToolSuccess {
+function requiredSuccess(result: ToolExecutionResult): ToolSuccess {
   assert.equal(result.status, "success");
   return result;
 }
