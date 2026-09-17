@@ -7,7 +7,11 @@ import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWi
 test("registry rejects invalid, unknown, and flag-like arguments before executing a tool", async () => {
   let executions = 0;
   const registry = new ToolRegistry();
-  registry.register(testTool(() => { executions += 1; }));
+  registry.register(
+    testTool(() => {
+      executions += 1;
+    })
+  );
   const signal = new AbortController().signal;
 
   for (const arguments_ of [null, { container: "api", unexpected: true }, { container: "--privileged" }]) {
@@ -22,20 +26,19 @@ test("registry owns dispatch lookup and exposes schemas without parsers or execu
   const registry = new ToolRegistry();
   registry.register(testTool(() => {}));
 
-  assert.deepEqual(registry.list(), [{
-    name: "docker_inspect",
-    description: "Inspect a Docker object.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      required: ["container"],
-      properties: { container: { type: "string" } }
+  assert.deepEqual(registry.list(), [
+    {
+      name: "docker_inspect",
+      description: "Inspect a Docker object.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["container"],
+        properties: { container: { type: "string" } }
+      }
     }
-  }]);
-  const result = await registry.dispatch(
-    { id: "call-unknown", name: "unknown", arguments: {} },
-    new AbortController().signal
-  );
+  ]);
+  const result = await registry.dispatch({ id: "call-unknown", name: "unknown", arguments: {} }, new AbortController().signal);
   assert.equal(result.status, "error");
   if (result.status === "error") assert.equal(result.code, "unknown-tool");
 });

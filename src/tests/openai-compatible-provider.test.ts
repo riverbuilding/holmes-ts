@@ -70,20 +70,15 @@ test("real provider reports an HTTP failure without exposing credentials", async
 test("real provider request honors its configured timeout", async () => {
   const provider = new OpenAiCompatibleProvider({ ...liveProviderConfig, modelTimeoutMs: 1 });
 
-  await assert.rejects(
-    provider.respond([{ role: "user", content: "Reply with ready." }], [], new AbortController().signal),
-    (error: unknown) => hasProviderErrorCode(error, "timeout")
+  await assert.rejects(provider.respond([{ role: "user", content: "Reply with ready." }], [], new AbortController().signal), (error: unknown) =>
+    hasProviderErrorCode(error, "timeout")
   );
 });
 
 test("real provider request honors caller cancellation", async () => {
   const provider = new OpenAiCompatibleProvider(liveProviderConfig);
   const controller = new AbortController();
-  const request = provider.respond(
-    [{ role: "user", content: "Write a detailed explanation of how DNS resolution works." }],
-    [],
-    controller.signal
-  );
+  const request = provider.respond([{ role: "user", content: "Write a detailed explanation of how DNS resolution works." }], [], controller.signal);
   const cancellation = setTimeout(() => controller.abort(), 10);
 
   try {
@@ -116,7 +111,7 @@ function environmentWithDotEnv(environment: NodeJS.ProcessEnv): NodeJS.ProcessEn
 function dotEnvValue(rawValue: string): string {
   const value = rawValue.trim();
   const quote = value[0];
-  if ((quote === "\"" || quote === "'") && value.endsWith(quote)) {
+  if ((quote === '"' || quote === "'") && value.endsWith(quote)) {
     return value.slice(1, -1);
   }
   return value.replace(/\s+#.*$/, "").trim();

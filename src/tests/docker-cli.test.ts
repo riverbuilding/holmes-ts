@@ -10,10 +10,7 @@ test("context resolution probes exactly once and rejects unsafe explicit names b
   assert.equal(await resolved, "team-dev");
   assert.deepEqual(launcher.calls[0]?.arguments_, ["context", "inspect", "team-dev"]);
 
-  await assert.rejects(
-    cli.resolveContext("--host=tcp://elsewhere", new AbortController().signal, 100),
-    DockerContextError
-  );
+  await assert.rejects(cli.resolveContext("--host=tcp://elsewhere", new AbortController().signal, 100), DockerContextError);
   assert.equal(launcher.calls.length, 1);
 });
 
@@ -31,20 +28,17 @@ test("Docker CLI invokes only the injected executable with a fixed argv array an
   const launcher = new FakeLauncher();
   const cli = new DockerCli({ executable: "/test/docker", launcher: launcher.launch });
 
-  const pending = cli.execute(
-    { kind: "container-logs", container: "api; rm -rf /", tail: 7 },
-    "team-dev",
-    new AbortController().signal,
-    100
-  );
+  const pending = cli.execute({ kind: "container-logs", container: "api; rm -rf /", tail: 7 }, "team-dev", new AbortController().signal, 100);
   launcher.processes[0]?.close(0);
   await pending;
 
-  assert.deepEqual(launcher.calls, [{
-    executable: "/test/docker",
-    arguments_: ["--context", "team-dev", "container", "logs", "--timestamps", "--tail", "7", "api; rm -rf /"],
-    options: { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
-  }]);
+  assert.deepEqual(launcher.calls, [
+    {
+      executable: "/test/docker",
+      arguments_: ["--context", "team-dev", "container", "logs", "--timestamps", "--tail", "7", "api; rm -rf /"],
+      options: { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
+    }
+  ]);
   assert.equal(launcher.calls[0]?.arguments_.includes("/bin/sh"), false);
   assert.equal(launcher.calls[0]?.arguments_.includes("exec"), false);
 });
@@ -61,10 +55,13 @@ test("container discovery has fixed JSON output formatting and an optional fixed
 
   assert.equal(runningResult.termination, "completed");
   assert.equal(allResult.termination, "completed");
-  assert.deepEqual(launcher.calls.map((call) => call.arguments_), [
-    ["--context", "team-dev", "container", "ls", "--format", "{{json .}}"],
-    ["--context", "team-dev", "container", "ls", "--all", "--format", "{{json .}}"]
-  ]);
+  assert.deepEqual(
+    launcher.calls.map((call) => call.arguments_),
+    [
+      ["--context", "team-dev", "container", "ls", "--format", "{{json .}}"],
+      ["--context", "team-dev", "container", "ls", "--all", "--format", "{{json .}}"]
+    ]
+  );
 });
 
 test("Phase 4 reads use complete fixed argv arrays with the pinned context", async () => {
@@ -83,12 +80,15 @@ test("Phase 4 reads use complete fixed argv arrays with the pinned context", asy
     await pending;
   }
 
-  assert.deepEqual(launcher.calls.map((call) => call.arguments_), [
-    ["--context", "team-dev", "image", "ls", "--format", "{{json .}}"],
-    ["--context", "team-dev", "container", "top", "checkout-api"],
-    ["--context", "team-dev", "image", "history", "--format", "{{json .}}", "checkout:1.4"],
-    ["--context", "team-dev", "container", "diff", "checkout-api"]
-  ]);
+  assert.deepEqual(
+    launcher.calls.map((call) => call.arguments_),
+    [
+      ["--context", "team-dev", "image", "ls", "--format", "{{json .}}"],
+      ["--context", "team-dev", "container", "top", "checkout-api"],
+      ["--context", "team-dev", "image", "history", "--format", "{{json .}}", "checkout:1.4"],
+      ["--context", "team-dev", "container", "diff", "checkout-api"]
+    ]
+  );
 });
 
 test("inspect accepts one resource as a fixed positional argument", async () => {
@@ -115,8 +115,17 @@ test("events has a fixed JSON format and always receives a finite time window", 
   await events;
 
   assert.deepEqual(launcher.calls[0]?.arguments_, [
-    "--context", "team-dev", "events", "--since", "2026-09-15T10:00:00Z", "--until", "2026-09-15T11:00:00Z",
-    "--format", "{{json .}}", "--filter", "container=checkout-api"
+    "--context",
+    "team-dev",
+    "events",
+    "--since",
+    "2026-09-15T10:00:00Z",
+    "--until",
+    "2026-09-15T11:00:00Z",
+    "--format",
+    "{{json .}}",
+    "--filter",
+    "container=checkout-api"
   ]);
   assert.equal(launcher.calls[0]?.arguments_.includes("--follow"), false);
 });
@@ -126,14 +135,16 @@ test("an already-aborted caller starts no process", async () => {
   const caller = new AbortController();
   caller.abort();
 
-  const result = await new DockerCli({ launcher: launcher.launch }).execute(
-    { kind: "context-show" }, undefined, caller.signal, 100
-  );
+  const result = await new DockerCli({ launcher: launcher.launch }).execute({ kind: "context-show" }, undefined, caller.signal, 100);
 
   assert.equal(launcher.calls.length, 0);
   assert.deepEqual(result, {
-    stdout: "", stderr: "", exitCode: null, durationMs: 0,
-    termination: "cancelled", outputTruncated: false
+    stdout: "",
+    stderr: "",
+    exitCode: null,
+    durationMs: 0,
+    termination: "cancelled",
+    outputTruncated: false
   });
 });
 
@@ -153,8 +164,12 @@ test("timeout sends TERM, waits for a late close, and leaves no timer or listene
   process.close(null, "SIGTERM");
   const result = await pending;
   assert.deepEqual(result, {
-    stdout: "partial output", stderr: "", exitCode: null, durationMs: 15,
-    termination: "timeout", outputTruncated: false
+    stdout: "partial output",
+    stderr: "",
+    exitCode: null,
+    durationMs: 15,
+    termination: "timeout",
+    outputTruncated: false
   });
   assert.equal(clock.pendingCount, 0);
   assert.equal(process.listenerCount, 0);
@@ -194,8 +209,12 @@ test("nonzero exits and raw process errors become neutral results, never thrown 
   requiredProcess(launcher).error(new Error("credential=do-not-leak"));
   const failureResult = await spawnFailure;
   assert.deepEqual(failureResult, {
-    stdout: "", stderr: "", exitCode: null, durationMs: 0,
-    termination: "spawn-error", outputTruncated: false
+    stdout: "",
+    stderr: "",
+    exitCode: null,
+    durationMs: 0,
+    termination: "spawn-error",
+    outputTruncated: false
   });
   assert.doesNotMatch(JSON.stringify(failureResult), /credential/);
 });
@@ -228,9 +247,16 @@ class FakeProcess implements DockerSpawnedProcess {
     if (event === "close" && this.closeListener === listener) this.closeListener = undefined;
     return undefined;
   }
-  public kill(signal: NodeJS.Signals = "SIGTERM"): boolean { this.killSignals.push(signal); return true; }
-  public close(code: number | null, signal: NodeJS.Signals | null = null): void { this.closeListener?.(code, signal); }
-  public error(error: Error): void { this.errorListener?.(error); }
+  public kill(signal: NodeJS.Signals = "SIGTERM"): boolean {
+    this.killSignals.push(signal);
+    return true;
+  }
+  public close(code: number | null, signal: NodeJS.Signals | null = null): void {
+    this.closeListener?.(code, signal);
+  }
+  public error(error: Error): void {
+    this.errorListener?.(error);
+  }
   public get listenerCount(): number {
     return this.stdout.listenerCount + this.stderr.listenerCount + Number(this.errorListener !== undefined) + Number(this.closeListener !== undefined);
   }
@@ -238,10 +264,20 @@ class FakeProcess implements DockerSpawnedProcess {
 
 class FakeReadable {
   private listener: ((chunk: Buffer | string) => void) | undefined;
-  public on(_event: "data", listener: (chunk: Buffer | string) => void): unknown { this.listener = listener; return undefined; }
-  public off(_event: "data", listener: (chunk: Buffer | string) => void): unknown { if (this.listener === listener) this.listener = undefined; return undefined; }
-  public emit(chunk: Buffer | string): void { this.listener?.(chunk); }
-  public get listenerCount(): number { return Number(this.listener !== undefined); }
+  public on(_event: "data", listener: (chunk: Buffer | string) => void): unknown {
+    this.listener = listener;
+    return undefined;
+  }
+  public off(_event: "data", listener: (chunk: Buffer | string) => void): unknown {
+    if (this.listener === listener) this.listener = undefined;
+    return undefined;
+  }
+  public emit(chunk: Buffer | string): void {
+    this.listener?.(chunk);
+  }
+  public get listenerCount(): number {
+    return Number(this.listener !== undefined);
+  }
 }
 
 class FakeClock implements DockerCliTimers {
@@ -249,13 +285,17 @@ class FakeClock implements DockerCliTimers {
   private nextId = 1;
   private readonly timers = new Map<number, { at: number; callback: () => void }>();
   public readonly now = (): number => this.current;
-  public get pendingCount(): number { return this.timers.size; }
+  public get pendingCount(): number {
+    return this.timers.size;
+  }
   public setTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout> {
     const id = this.nextId++;
     this.timers.set(id, { at: this.current + delayMs, callback });
     return id as unknown as ReturnType<typeof setTimeout>;
   }
-  public clearTimeout(handle: ReturnType<typeof setTimeout>): void { this.timers.delete(handle as unknown as number); }
+  public clearTimeout(handle: ReturnType<typeof setTimeout>): void {
+    this.timers.delete(handle as unknown as number);
+  }
   public advance(milliseconds: number): void {
     const target = this.current + milliseconds;
     while (true) {

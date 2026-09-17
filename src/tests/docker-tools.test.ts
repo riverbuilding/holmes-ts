@@ -9,7 +9,7 @@ test("docker_ps and docker_ps_all issue fixed discovery operations in the pinned
   const cli = {
     async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
       calls.push({ operation, context, timeoutMs });
-      return completed("{\"ID\":\"api-id\",\"Names\":\"api\",\"Image\":\"checkout:1.4\"}");
+      return completed('{"ID":"api-id","Names":"api","Image":"checkout:1.4"}');
     }
   };
   const tools = toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 }));
@@ -28,17 +28,34 @@ test("docker_ps and docker_ps_all issue fixed discovery operations in the pinned
 test("discovery maps daemon failures and applies the fixed row limit", async () => {
   const unavailable = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Cannot connect to the Docker daemon at unix:///private.sock", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Cannot connect to the Docker daemon at unix:///private.sock",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
-  const unavailableResult = await requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: unavailable })), "docker_ps").execute({}, new AbortController().signal);
+  const unavailableResult = await requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: unavailable })), "docker_ps").execute(
+    {},
+    new AbortController().signal
+  );
   assert.deepEqual(unavailableResult, { status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true });
 
-  const rows = Array.from({ length: 101 }, (_, index) => JSON.stringify({ ID: `id-${index}`, Names: `container-${String(index).padStart(3, "0")}` })).join("\n");
+  const rows = Array.from({ length: 101 }, (_, index) => JSON.stringify({ ID: `id-${index}`, Names: `container-${String(index).padStart(3, "0")}` })).join(
+    "\n"
+  );
   const limited = {
-    async execute(): Promise<DockerCommandResult> { return completed(rows); }
+    async execute(): Promise<DockerCommandResult> {
+      return completed(rows);
+    }
   };
-  const limitedResult = await requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: limited })), "docker_ps_all").execute({}, new AbortController().signal);
+  const limitedResult = await requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: limited })), "docker_ps_all").execute(
+    {},
+    new AbortController().signal
+  );
   assert.equal(limitedResult.status, "success");
   assert.deepEqual(limitedResult.truncation, { truncated: true, reason: "row-limit", originalItemCount: 101, retainedItemCount: 100 });
   assert.equal(JSON.parse(limitedResult.content).containers.length, 100);
@@ -49,10 +66,27 @@ test("docker_images uses the fixed image-list operation and shared image project
   const cli = {
     async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
       calls.push({ operation, context, timeoutMs });
-      return completed([
-        JSON.stringify({ Repository: "checkout", Tag: "1.4", ID: "sha256:checkout", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", Size: "12MB" }),
-        JSON.stringify({ Repository: "<none>", Tag: "<none>", ID: "sha256:stale", CreatedAt: "2026-09-15 11:00:00", CreatedSince: "two hours ago", Size: "8MB", Labels: { token: "never-visible" } })
-      ].join("\n"));
+      return completed(
+        [
+          JSON.stringify({
+            Repository: "checkout",
+            Tag: "1.4",
+            ID: "sha256:checkout",
+            CreatedAt: "2026-09-15 12:00:00",
+            CreatedSince: "one hour ago",
+            Size: "12MB"
+          }),
+          JSON.stringify({
+            Repository: "<none>",
+            Tag: "<none>",
+            ID: "sha256:stale",
+            CreatedAt: "2026-09-15 11:00:00",
+            CreatedSince: "two hours ago",
+            Size: "8MB",
+            Labels: { token: "never-visible" }
+          })
+        ].join("\n")
+      );
     }
   };
   const images = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_images");
@@ -63,7 +97,15 @@ test("docker_images uses the fixed image-list operation and shared image project
   assert.deepEqual(JSON.parse(result.content), {
     images: [
       { id: "sha256:stale", createdAt: "2026-09-15 11:00:00", createdSince: "two hours ago", size: "8MB", dangling: true },
-      { id: "sha256:checkout", repository: "checkout", tag: "1.4", createdAt: "2026-09-15 12:00:00", createdSince: "one hour ago", size: "12MB", dangling: false }
+      {
+        id: "sha256:checkout",
+        repository: "checkout",
+        tag: "1.4",
+        createdAt: "2026-09-15 12:00:00",
+        createdSince: "one hour ago",
+        size: "12MB",
+        dangling: false
+      }
     ]
   });
   assert.doesNotMatch(JSON.stringify(result), /never-visible/);
@@ -77,17 +119,30 @@ test("docker_images maps malformed and daemon failures to structured errors", as
   };
   const images = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_images");
   assert.deepEqual(await images.execute({}, new AbortController().signal), {
-    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
+    status: "error",
+    code: "malformed-output",
+    message: "Docker returned malformed output.",
+    retryable: false
   });
 
   const unavailable = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Cannot connect to the Docker daemon at unix:///private.sock", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Cannot connect to the Docker daemon at unix:///private.sock",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const unavailableImages = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: unavailable })), "docker_images");
   assert.deepEqual(await unavailableImages.execute({}, new AbortController().signal), {
-    status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true
+    status: "error",
+    code: "unavailable",
+    message: "Docker is unavailable.",
+    retryable: true
   });
 });
 
@@ -115,22 +170,42 @@ test("docker_top uses the fixed process operation and safely projects bounded ro
 test("docker_top maps stopped and missing containers without returning Docker errors", async () => {
   const stopped = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Error response from daemon: Container private-token is not running", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Error response from daemon: Container private-token is not running",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const top = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: stopped })), "docker_top");
   assert.deepEqual(await top.execute(top.parseArguments({ container_id: "checkout-api" }), new AbortController().signal), {
-    status: "error", code: "nonzero-exit", message: "Docker container is not running.", retryable: false
+    status: "error",
+    code: "nonzero-exit",
+    message: "Docker container is not running.",
+    retryable: false
   });
 
   const missing = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Error response from daemon: No such container: private-token", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Error response from daemon: No such container: private-token",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const missingTop = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_top");
   assert.deepEqual(await missingTop.execute(missingTop.parseArguments({ container_id: "checkout-api" }), new AbortController().signal), {
-    status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false
+    status: "error",
+    code: "not-found",
+    message: "Docker resource was not found.",
+    retryable: false
   });
 });
 
@@ -166,22 +241,20 @@ test("fixtures share discovery schemas and execute without a Docker CLI", async 
   const all = await requiredTool(fixture, "docker_ps_all").execute({}, new AbortController().signal);
   assert.equal(running.status, "success");
   assert.equal(all.status, "success");
-  assert.deepEqual(JSON.parse(running.content), { containers: [{ id: "checkout-db", name: "checkout-db", image: "postgres:16", status: "Up 10 minutes", state: "running" }] });
-  assert.deepEqual(JSON.parse(all.content), { containers: [
-    { id: "checkout-api", name: "checkout-api", image: "checkout:1.4", status: "Exited (1) 2 minutes ago", state: "exited" },
-    { id: "checkout-db", name: "checkout-db", image: "postgres:16", status: "Up 10 minutes", state: "running" }
-  ] });
+  assert.deepEqual(JSON.parse(running.content), {
+    containers: [{ id: "checkout-db", name: "checkout-db", image: "postgres:16", status: "Up 10 minutes", state: "running" }]
+  });
+  assert.deepEqual(JSON.parse(all.content), {
+    containers: [
+      { id: "checkout-api", name: "checkout-api", image: "checkout:1.4", status: "Exited (1) 2 minutes ago", state: "exited" },
+      { id: "checkout-db", name: "checkout-db", image: "postgres:16", status: "Up 10 minutes", state: "running" }
+    ]
+  });
 });
 
 test("all fixtures expose each implemented tool through the live public contract", async () => {
   const live = toolMap(createDockerTools({}));
-  const scenarios = [
-    "missing-env",
-    "unhealthy-container",
-    "insufficient-evidence",
-    "image-regression",
-    "writable-layer-change"
-  ] as const;
+  const scenarios = ["missing-env", "unhealthy-container", "insufficient-evidence", "image-regression", "writable-layer-change"] as const;
 
   for (const scenario of scenarios) {
     const fixture = toolMap(createFixtureTools(scenario));
@@ -214,11 +287,17 @@ test("docker_inspect uses one fixed resource operation and projects container se
   const cli = {
     async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
       calls.push({ operation, context, timeoutMs });
-      return completed(JSON.stringify([{
-        Id: "container-id", Name: "/api", State: { Status: "exited", ExitCode: 1 },
-        Config: { Image: "checkout:1.4", Env: ["PASSWORD=never-visible"], Labels: { team: "payments", auth_token: "never-visible" } },
-        HostConfig: { Privileged: true }
-      }]));
+      return completed(
+        JSON.stringify([
+          {
+            Id: "container-id",
+            Name: "/api",
+            State: { Status: "exited", ExitCode: 1 },
+            Config: { Image: "checkout:1.4", Env: ["PASSWORD=never-visible"], Labels: { team: "payments", auth_token: "never-visible" } },
+            HostConfig: { Privileged: true }
+          }
+        ])
+      );
     }
   };
   const inspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_inspect");
@@ -227,7 +306,12 @@ test("docker_inspect uses one fixed resource operation and projects container se
   assert.deepEqual(calls, [{ operation: { kind: "inspect", resource: "checkout:1.4" }, context: "team-dev", timeoutMs: 321 }]);
   assert.equal(result.status, "success");
   assert.deepEqual(JSON.parse(result.content), {
-    kind: "container", id: "container-id", name: "/api", imageReference: "checkout:1.4", state: "exited", exitCode: 1,
+    kind: "container",
+    id: "container-id",
+    name: "/api",
+    imageReference: "checkout:1.4",
+    state: "exited",
+    exitCode: 1,
     labels: { auth_token: "<withheld>", team: "payments" }
   });
   assert.doesNotMatch(JSON.stringify(result), /never-visible|PASSWORD|Privileged/);
@@ -236,7 +320,14 @@ test("docker_inspect uses one fixed resource operation and projects container se
 test("docker_inspect maps missing resources and rejects whitespace-bearing targets", async () => {
   const missing = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Error response from daemon: No such object: missing", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Error response from daemon: No such object: missing",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const inspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_inspect");
@@ -245,10 +336,15 @@ test("docker_inspect maps missing resources and rejects whitespace-bearing targe
   assert.deepEqual(result, { status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false });
 
   const malformed = {
-    async execute(): Promise<DockerCommandResult> { return completed("[{},{ }]"); }
+    async execute(): Promise<DockerCommandResult> {
+      return completed("[{},{ }]");
+    }
   };
   const malformedInspect = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_inspect");
-  const malformedResult = await malformedInspect.execute(malformedInspect.parseArguments({ container_or_image_id: "checkout-api" }), new AbortController().signal);
+  const malformedResult = await malformedInspect.execute(
+    malformedInspect.parseArguments({ container_or_image_id: "checkout-api" }),
+    new AbortController().signal
+  );
   assert.deepEqual(malformedResult, { status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false });
 });
 
@@ -257,8 +353,14 @@ test("inspect fixtures use the same schemas and container/image projector", asyn
   const containerResult = await container.execute(container.parseArguments({ container_or_image_id: "checkout-api" }), new AbortController().signal);
   assert.equal(containerResult.status, "success");
   assert.deepEqual(JSON.parse(containerResult.content), {
-    kind: "container", id: "checkout-api", name: "/checkout-api", imageReference: "checkout:1.4", createdAt: "2026-09-15T00:00:00.000Z",
-    state: "exited", exitCode: 1, labels: { api_token: "<withheld>", service: "checkout" }
+    kind: "container",
+    id: "checkout-api",
+    name: "/checkout-api",
+    imageReference: "checkout:1.4",
+    createdAt: "2026-09-15T00:00:00.000Z",
+    state: "exited",
+    exitCode: 1,
+    labels: { api_token: "<withheld>", service: "checkout" }
   });
   assert.doesNotMatch(JSON.stringify(containerResult), /never-visible|DATABASE_URL/);
 
@@ -266,8 +368,14 @@ test("inspect fixtures use the same schemas and container/image projector", asyn
   const imageResult = await image.execute(image.parseArguments({ container_or_image_id: "checkout:1.4" }), new AbortController().signal);
   assert.equal(imageResult.status, "success");
   assert.deepEqual(JSON.parse(imageResult.content), {
-    kind: "image", id: "sha256:checkout", tags: ["checkout:1.4"], createdAt: "2026-09-15T00:00:00.000Z", architecture: "amd64", os: "linux",
-    command: ["node", "server.js"], labels: { password: "<withheld>", service: "checkout" }
+    kind: "image",
+    id: "sha256:checkout",
+    tags: ["checkout:1.4"],
+    createdAt: "2026-09-15T00:00:00.000Z",
+    architecture: "amd64",
+    os: "linux",
+    command: ["node", "server.js"],
+    labels: { password: "<withheld>", service: "checkout" }
   });
 });
 
@@ -276,10 +384,26 @@ test("docker_history uses the fixed image operation, requested limit, and safe p
   const cli = {
     async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
       calls.push({ operation, context, timeoutMs });
-      return completed([
-        JSON.stringify({ ID: "sha256:new", CreatedAt: "2026-09-15 12:00:00", CreatedSince: "one hour ago", CreatedBy: "/bin/sh -c #(nop)  CMD [\"node\" \"server.js\"]", Size: "0B", Comment: "" }),
-        JSON.stringify({ ID: "sha256:old", CreatedAt: "2026-09-15 10:00:00", CreatedSince: "three hours ago", CreatedBy: "/bin/sh -c RUN token=never-visible", Size: "4MB", Comment: "release" })
-      ].join("\n"));
+      return completed(
+        [
+          JSON.stringify({
+            ID: "sha256:new",
+            CreatedAt: "2026-09-15 12:00:00",
+            CreatedSince: "one hour ago",
+            CreatedBy: '/bin/sh -c #(nop)  CMD ["node" "server.js"]',
+            Size: "0B",
+            Comment: ""
+          }),
+          JSON.stringify({
+            ID: "sha256:old",
+            CreatedAt: "2026-09-15 10:00:00",
+            CreatedSince: "three hours ago",
+            CreatedBy: "/bin/sh -c RUN token=never-visible",
+            Size: "4MB",
+            Comment: "release"
+          })
+        ].join("\n")
+      );
     }
   };
   const history = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321 })), "docker_history");
@@ -297,12 +421,22 @@ test("docker_history uses the fixed image operation, requested limit, and safe p
 test("docker_history maps missing images and malformed output to structured errors", async () => {
   const missing = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Error response from daemon: No such image: missing", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Error response from daemon: No such image: missing",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const history = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: missing })), "docker_history");
   assert.deepEqual(await history.execute(history.parseArguments({ image_id: "missing" }), new AbortController().signal), {
-    status: "error", code: "not-found", message: "Docker resource was not found.", retryable: false
+    status: "error",
+    code: "not-found",
+    message: "Docker resource was not found.",
+    retryable: false
   });
 
   const malformed = {
@@ -312,7 +446,10 @@ test("docker_history maps missing images and malformed output to structured erro
   };
   const malformedHistory = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: malformed })), "docker_history");
   assert.deepEqual(await malformedHistory.execute(malformedHistory.parseArguments({ image_id: "checkout:1.4" }), new AbortController().signal), {
-    status: "error", code: "malformed-output", message: "Docker returned malformed output.", retryable: false
+    status: "error",
+    code: "malformed-output",
+    message: "Docker returned malformed output.",
+    retryable: false
   });
 });
 
@@ -334,12 +471,22 @@ test("docker_logs uses a bounded timestamped operation and projects safe failure
 
   const unavailable = {
     async execute(): Promise<DockerCommandResult> {
-      return { stdout: "", stderr: "Cannot connect to the Docker daemon at unix:///private.sock", exitCode: 1, durationMs: 3, termination: "nonzero-exit", outputTruncated: false };
+      return {
+        stdout: "",
+        stderr: "Cannot connect to the Docker daemon at unix:///private.sock",
+        exitCode: 1,
+        durationMs: 3,
+        termination: "nonzero-exit",
+        outputTruncated: false
+      };
     }
   };
   const failedLogs = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli: unavailable })), "docker_logs");
   assert.deepEqual(await failedLogs.execute(failedLogs.parseArguments({ container_id: "checkout-api" }), new AbortController().signal), {
-    status: "error", code: "unavailable", message: "Docker is unavailable.", retryable: true
+    status: "error",
+    code: "unavailable",
+    message: "Docker is unavailable.",
+    retryable: true
   });
 });
 
@@ -348,20 +495,44 @@ test("docker_events requests a bounded historical window and projects lifecycle 
   const cli = {
     async execute(operation: unknown, context: string | undefined, _signal: AbortSignal, timeoutMs: number): Promise<DockerCommandResult> {
       calls.push({ operation, context, timeoutMs });
-      return completed([
-        JSON.stringify({ timeNano: 20, Type: "container", Action: "die", Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:1.4", password: "never-visible" } } }),
-        JSON.stringify({ timeNano: 10, Type: "container", Action: "start", Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:1.4" } } })
-      ].join("\n"));
+      return completed(
+        [
+          JSON.stringify({
+            timeNano: 20,
+            Type: "container",
+            Action: "die",
+            Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:1.4", password: "never-visible" } }
+          }),
+          JSON.stringify({
+            timeNano: 10,
+            Type: "container",
+            Action: "start",
+            Actor: { ID: "checkout-api", Attributes: { name: "checkout-api", image: "checkout:1.4" } }
+          })
+        ].join("\n")
+      );
     }
   };
-  const events = requiredTool(toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321, now: () => Date.parse("2026-09-15T13:00:00Z") })), "docker_events");
-  const result = await events.execute(events.parseArguments({ container_id: "checkout-api", since: "2026-09-15T11:00:00Z", until: "2026-09-15T12:00:00Z", limit: 1 }), new AbortController().signal);
+  const events = requiredTool(
+    toolMap(createDockerTools({ context: "team-dev", cli, commandTimeoutMs: 321, now: () => Date.parse("2026-09-15T13:00:00Z") })),
+    "docker_events"
+  );
+  const result = await events.execute(
+    events.parseArguments({ container_id: "checkout-api", since: "2026-09-15T11:00:00Z", until: "2026-09-15T12:00:00Z", limit: 1 }),
+    new AbortController().signal
+  );
 
-  assert.deepEqual(calls, [{
-    operation: { kind: "events", container: "checkout-api", since: "2026-09-15T11:00:00Z", until: "2026-09-15T12:00:00Z" }, context: "team-dev", timeoutMs: 321
-  }]);
+  assert.deepEqual(calls, [
+    {
+      operation: { kind: "events", container: "checkout-api", since: "2026-09-15T11:00:00Z", until: "2026-09-15T12:00:00Z" },
+      context: "team-dev",
+      timeoutMs: 321
+    }
+  ]);
   assert.equal(result.status, "success");
-  assert.deepEqual(JSON.parse(result.content), { events: [{ timeNano: 10, type: "container", action: "start", resourceId: "checkout-api", resourceName: "checkout-api", image: "checkout:1.4" }] });
+  assert.deepEqual(JSON.parse(result.content), {
+    events: [{ timeNano: 10, type: "container", action: "start", resourceId: "checkout-api", resourceName: "checkout-api", image: "checkout:1.4" }]
+  });
   assert.deepEqual(result.truncation, { truncated: true, reason: "row-limit", originalItemCount: 2, retainedItemCount: 1 });
   assert.doesNotMatch(JSON.stringify(result), /never-visible/);
 });
@@ -385,9 +556,16 @@ test("logs and events fixtures share schemas and bounded projectors", async () =
   assert.deepEqual(JSON.parse(logResult.content), { lines: ["2026-09-15T00:00:01.000000000Z configuration error: DATABASE_URL is required"] });
 
   const events = requiredTool(fixture, "docker_events");
-  const eventResult = await events.execute(events.parseArguments({ container_id: "checkout-api", since: "2026-09-14T00:00:00Z", until: "2026-09-15T00:00:00Z" }), new AbortController().signal);
+  const eventResult = await events.execute(
+    events.parseArguments({ container_id: "checkout-api", since: "2026-09-14T00:00:00Z", until: "2026-09-15T00:00:00Z" }),
+    new AbortController().signal
+  );
   assert.equal(eventResult.status, "success");
-  assert.deepEqual(JSON.parse(eventResult.content), { events: [{ timeNano: 1768435201000000000, type: "container", action: "die", resourceId: "checkout-api", resourceName: "checkout-api", image: "checkout:1.4" }] });
+  assert.deepEqual(JSON.parse(eventResult.content), {
+    events: [
+      { timeNano: 1768435201000000000, type: "container", action: "die", resourceId: "checkout-api", resourceName: "checkout-api", image: "checkout:1.4" }
+    ]
+  });
 });
 
 test("image-regression fixture projects image evidence without raw history commands", async () => {
@@ -397,8 +575,24 @@ test("image-regression fixture projects image evidence without raw history comma
   assert.equal(imageResult.status, "success");
   assert.deepEqual(JSON.parse(imageResult.content), {
     images: [
-      { id: "sha256:checkout-14", repository: "checkout", tag: "1.4", createdAt: "2026-09-14 00:00:00", createdSince: "one day ago", size: "24MB", dangling: false },
-      { id: "sha256:checkout-15", repository: "checkout", tag: "1.5", createdAt: "2026-09-15 00:00:00", createdSince: "one minute ago", size: "26MB", dangling: false }
+      {
+        id: "sha256:checkout-14",
+        repository: "checkout",
+        tag: "1.4",
+        createdAt: "2026-09-14 00:00:00",
+        createdSince: "one day ago",
+        size: "24MB",
+        dangling: false
+      },
+      {
+        id: "sha256:checkout-15",
+        repository: "checkout",
+        tag: "1.5",
+        createdAt: "2026-09-15 00:00:00",
+        createdSince: "one minute ago",
+        size: "26MB",
+        dangling: false
+      }
     ]
   });
 

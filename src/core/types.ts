@@ -104,16 +104,7 @@ export interface ToolSuccess {
 }
 
 export type ToolErrorCode =
-  | "invalid-arguments"
-  | "unknown-tool"
-  | "not-found"
-  | "unavailable"
-  | "timeout"
-  | "cancelled"
-  | "nonzero-exit"
-  | "malformed-output"
-  | "duplicate"
-  | "internal";
+  "invalid-arguments" | "unknown-tool" | "not-found" | "unavailable" | "timeout" | "cancelled" | "nonzero-exit" | "malformed-output" | "duplicate" | "internal";
 
 export interface ToolError {
   status: "error";
@@ -130,12 +121,7 @@ export type ToolExecutionResult = ToolSuccess | ToolError;
  * semantics (for example, whether a nonzero exit means "not found") are
  * deliberately classified by the Docker projection layer, not here.
  */
-export type DockerProcessTermination =
-  | "completed"
-  | "nonzero-exit"
-  | "timeout"
-  | "cancelled"
-  | "spawn-error";
+export type DockerProcessTermination = "completed" | "nonzero-exit" | "timeout" | "cancelled" | "spawn-error";
 
 /**
  * Captured facts from one fixed Docker CLI invocation. This is intentionally
@@ -182,13 +168,7 @@ export interface AssistantResponse {
   toolCalls: ToolCall[];
 }
 
-export type InvestigationStopReason =
-  | "deadline"
-  | "tool-limit"
-  | "model-limit"
-  | "duplicate-only"
-  | "cancelled"
-  | "provider-error";
+export type InvestigationStopReason = "deadline" | "tool-limit" | "model-limit" | "duplicate-only" | "cancelled" | "provider-error";
 
 export interface InvestigationResult {
   answer: string;

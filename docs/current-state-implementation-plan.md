@@ -22,15 +22,15 @@ investigations.
 compiling skeleton and one deterministic investigation-loop test; it does not
 verify an investigation can run.
 
-| Area | Present today | Gap to delivery target |
-|---|---|---|
-| CLI/configuration | `ask`, a quoted positional question, `--docker-context`, three fixture names, and required model environment variables parse. | No `--verbose`, no selected-context resolution/display, no limit configuration, and fixture names do not match the five planned scenarios. |
-| Model provider | Interfaces and an OpenAI-compatible class seam exist. | `respond` always throws; HTTP protocol mapping, timeouts, cancellation, and tool-call parsing are absent. |
+| Area                 | Present today                                                                                                                              | Gap to delivery target                                                                                                                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI/configuration    | `ask`, a quoted positional question, `--docker-context`, three fixture names, and required model environment variables parse.              | No `--verbose`, no selected-context resolution/display, no limit configuration, and fixture names do not match the five planned scenarios.                                                                                                                                                                                                               |
+| Model provider       | Interfaces and an OpenAI-compatible class seam exist.                                                                                      | `respond` always throws; HTTP protocol mapping, timeouts, cancellation, and tool-call parsing are absent.                                                                                                                                                                                                                                                |
 | Investigation engine | A sequential model/tool loop associates successful tool results with `E1`, `E2`, etc.; unknown tools and tool errors become tool messages. | It lacks concurrent calls, per-call/model timeouts, global deadline propagation, evidence/result budgets, redaction, deduplication, reserved final synthesis, structured assistant tool-call history, citation validation, and useful partial synthesis. Defaults are 8 model calls, 12 tool calls, and 120 seconds rather than 12, 24, and 180 seconds. |
-| Docker tools | Construction seam and context type exist. | All nine public tools, argument schemas, fixed Docker command backend, projections, redaction, bounded output, and error mapping are absent. |
-| Fixtures | Construction seam and three placeholder scenario names exist. | No observation data or tool implementations; required scenarios for health, filesystem change, and image regression are absent. |
-| Prompt/output | A short investigator prompt and a renderer exist. | No upstream attribution/adapted behavior, tool descriptions, partial-result guidance, or citation validation. |
-| Quality/release | One scripted test passes. | There are no security, backend, fixture-parity, CLI, prompt, live-Docker, or real-model evaluation tests; attribution/license notices are also absent. |
+| Docker tools         | Construction seam and context type exist.                                                                                                  | All nine public tools, argument schemas, fixed Docker command backend, projections, redaction, bounded output, and error mapping are absent.                                                                                                                                                                                                             |
+| Fixtures             | Construction seam and three placeholder scenario names exist.                                                                              | No observation data or tool implementations; required scenarios for health, filesystem change, and image regression are absent.                                                                                                                                                                                                                          |
+| Prompt/output        | A short investigator prompt and a renderer exist.                                                                                          | No upstream attribution/adapted behavior, tool descriptions, partial-result guidance, or citation validation.                                                                                                                                                                                                                                            |
+| Quality/release      | One scripted test passes.                                                                                                                  | There are no security, backend, fixture-parity, CLI, prompt, live-Docker, or real-model evaluation tests; attribution/license notices are also absent.                                                                                                                                                                                                   |
 
 Consequently, no live or fixture diagnostic path should be advertised as
 working until phases 1 through 4 have passed.
@@ -249,22 +249,22 @@ evidence-backed output.
 
 ## File-level change map
 
-| File or path | Planned responsibility |
-|---|---|
-| `src/config.ts` | Read provider/Docker/limit settings; validate and expose safe defaults. |
-| `src/cli.ts` | Parse complete CLI surface, resolve/pin context, construct dependencies, select exit codes, and manage verbose progress. |
-| `src/core/types.ts` | Stable normalized contracts and complete limits. |
-| `src/core/investigate.ts` | Deadline-aware concurrent tool loop and final synthesis behavior. |
-| `src/core/evidence.ts` | Evidence IDs, redaction, clipping, budgets, and citation validation. |
-| `src/llm/openai-compatible-provider.ts` | HTTP adapter, normalized protocol mapping, timeout, and cancellation. |
-| `src/prompts/local-docker-investigate.ts` | Attributed local-Docker prompt port; replaces `prompts/investigate.ts`. |
-| `src/tools/registry.ts` | Public schemas, parsing, validation, and dispatch. |
-| `src/tools/docker-cli.ts` | Fixed-array, read-only Docker CLI adapter. |
-| `src/tools/docker.ts` | Nine definitions plus Docker-specific projection coordination. |
-| `src/tools/fixtures.ts` and `fixtures/*` | Scenario observations through the same public tool contracts. |
-| `src/output/render.ts` | Validated, evidence-backed terminal output and partial-status display. |
-| `src/tests/*` | Split deterministic core, provider, tool, prompt, CLI, and fixture tests by concern. |
-| `examples/docker/*` | Disposable local Docker cases used only for live validation. |
+| File or path                              | Planned responsibility                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `src/config.ts`                           | Read provider/Docker/limit settings; validate and expose safe defaults.                                                  |
+| `src/cli.ts`                              | Parse complete CLI surface, resolve/pin context, construct dependencies, select exit codes, and manage verbose progress. |
+| `src/core/types.ts`                       | Stable normalized contracts and complete limits.                                                                         |
+| `src/core/investigate.ts`                 | Deadline-aware concurrent tool loop and final synthesis behavior.                                                        |
+| `src/core/evidence.ts`                    | Evidence IDs, redaction, clipping, budgets, and citation validation.                                                     |
+| `src/llm/openai-compatible-provider.ts`   | HTTP adapter, normalized protocol mapping, timeout, and cancellation.                                                    |
+| `src/prompts/local-docker-investigate.ts` | Attributed local-Docker prompt port; replaces `prompts/investigate.ts`.                                                  |
+| `src/tools/registry.ts`                   | Public schemas, parsing, validation, and dispatch.                                                                       |
+| `src/tools/docker-cli.ts`                 | Fixed-array, read-only Docker CLI adapter.                                                                               |
+| `src/tools/docker.ts`                     | Nine definitions plus Docker-specific projection coordination.                                                           |
+| `src/tools/fixtures.ts` and `fixtures/*`  | Scenario observations through the same public tool contracts.                                                            |
+| `src/output/render.ts`                    | Validated, evidence-backed terminal output and partial-status display.                                                   |
+| `src/tests/*`                             | Split deterministic core, provider, tool, prompt, CLI, and fixture tests by concern.                                     |
+| `examples/docker/*`                       | Disposable local Docker cases used only for live validation.                                                             |
 
 ## Suggested execution order and estimate
 

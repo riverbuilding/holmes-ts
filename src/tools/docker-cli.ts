@@ -39,11 +39,7 @@ export interface DockerSpawnedProcess {
   kill(signal?: NodeJS.Signals): boolean;
 }
 
-export type DockerProcessLauncher = (
-  executable: string,
-  arguments_: readonly string[],
-  options: DockerProcessLaunchOptions
-) => DockerSpawnedProcess;
+export type DockerProcessLauncher = (executable: string, arguments_: readonly string[], options: DockerProcessLaunchOptions) => DockerSpawnedProcess;
 
 export interface DockerCliTimers {
   setTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout>;
@@ -169,9 +165,7 @@ export class DockerCli {
    */
   public async resolveContext(explicitContext: string | undefined, signal: AbortSignal, timeoutMs: number): Promise<DockerContext> {
     const requested = explicitContext === undefined ? undefined : validateContextName(explicitContext);
-    const operation: DockerCliOperation = requested === undefined
-      ? { kind: "context-show" }
-      : { kind: "context-inspect", context: requested };
+    const operation: DockerCliOperation = requested === undefined ? { kind: "context-show" } : { kind: "context-inspect", context: requested };
     const result = await this.execute(operation, undefined, signal, timeoutMs);
     if (result.termination === "cancelled") throw new DockerContextError("Docker context resolution was cancelled.");
     if (result.termination === "timeout") throw new DockerContextError("Docker context resolution timed out.");
@@ -197,16 +191,35 @@ export function validateContextName(value: string): DockerContext {
 
 function commandArguments(operation: DockerCliOperation, pinnedContext: string | undefined): string[] {
   switch (operation.kind) {
-    case "context-show": return ["context", "show"];
-    case "context-inspect": return ["context", "inspect", operation.context];
-    case "container-ls": return withContext(pinnedContext, ["container", "ls", ...(operation.all ? ["--all"] : []), "--format", "{{json .}}"]);
-    case "image-ls": return withContext(pinnedContext, ["image", "ls", "--format", "{{json .}}"]);
-    case "container-top": return withContext(pinnedContext, ["container", "top", operation.container]);
-    case "image-history": return withContext(pinnedContext, ["image", "history", "--format", "{{json .}}", operation.image]);
-    case "container-diff": return withContext(pinnedContext, ["container", "diff", operation.container]);
-    case "inspect": return withContext(pinnedContext, ["inspect", operation.resource]);
-    case "container-logs": return withContext(pinnedContext, ["container", "logs", "--timestamps", "--tail", String(operation.tail), operation.container]);
-    case "events": return withContext(pinnedContext, ["events", "--since", operation.since, "--until", operation.until, "--format", "{{json .}}", ...(operation.container === undefined ? [] : ["--filter", `container=${operation.container}`])]);
+    case "context-show":
+      return ["context", "show"];
+    case "context-inspect":
+      return ["context", "inspect", operation.context];
+    case "container-ls":
+      return withContext(pinnedContext, ["container", "ls", ...(operation.all ? ["--all"] : []), "--format", "{{json .}}"]);
+    case "image-ls":
+      return withContext(pinnedContext, ["image", "ls", "--format", "{{json .}}"]);
+    case "container-top":
+      return withContext(pinnedContext, ["container", "top", operation.container]);
+    case "image-history":
+      return withContext(pinnedContext, ["image", "history", "--format", "{{json .}}", operation.image]);
+    case "container-diff":
+      return withContext(pinnedContext, ["container", "diff", operation.container]);
+    case "inspect":
+      return withContext(pinnedContext, ["inspect", operation.resource]);
+    case "container-logs":
+      return withContext(pinnedContext, ["container", "logs", "--timestamps", "--tail", String(operation.tail), operation.container]);
+    case "events":
+      return withContext(pinnedContext, [
+        "events",
+        "--since",
+        operation.since,
+        "--until",
+        operation.until,
+        "--format",
+        "{{json .}}",
+        ...(operation.container === undefined ? [] : ["--filter", `container=${operation.container}`])
+      ]);
   }
 }
 
@@ -237,7 +250,11 @@ function positiveInteger(value: number | undefined, fallback: number, name: stri
 
 /** A race with a naturally exiting child must not escape as a Node error. */
 function safelyKill(child: DockerSpawnedProcess, signal: NodeJS.Signals): void {
-  try { child.kill(signal); } catch { /* close/error handlers determine the neutral result. */ }
+  try {
+    child.kill(signal);
+  } catch {
+    /* close/error handlers determine the neutral result. */
+  }
 }
 
 class BoundedOutput {
@@ -264,5 +281,7 @@ class BoundedOutput {
     this.size += bytes.byteLength;
   }
 
-  public text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
+  public text(): string {
+    return Buffer.concat(this.chunks).toString("utf8");
+  }
 }

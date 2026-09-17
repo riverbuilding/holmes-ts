@@ -8,21 +8,13 @@ import type { ToolRegistration } from "../core/types.js";
 const config = loadConfig({ LLM_API_KEY: "test-key" });
 
 test("ask parsing rejects fixture and Docker context together, and accepts verbose", () => {
-  assert.throws(
-    () => parseAskArguments(["ask", "what happened?", "--fixture", "missing-env", "--docker-context", "dev"]),
-    /cannot be used together/
-  );
+  assert.throws(() => parseAskArguments(["ask", "what happened?", "--fixture", "missing-env", "--docker-context", "dev"]), /cannot be used together/);
   assert.deepEqual(parseAskArguments(["ask", "what happened?", "--verbose"]), {
-    question: "what happened?", verbose: true
+    question: "what happened?",
+    verbose: true
   });
-  assert.equal(
-    parseAskArguments(["ask", "what changed?", "--fixture", "image-regression"]).fixture,
-    "image-regression"
-  );
-  assert.equal(
-    parseAskArguments(["ask", "what changed?", "--fixture", "writable-layer-change"]).fixture,
-    "writable-layer-change"
-  );
+  assert.equal(parseAskArguments(["ask", "what changed?", "--fixture", "image-regression"]).fixture, "image-regression");
+  assert.equal(parseAskArguments(["ask", "what changed?", "--fixture", "writable-layer-change"]).fixture, "writable-layer-change");
 });
 
 test("a live context resolves once before Docker registrations are constructed", async () => {
@@ -35,7 +27,9 @@ test("a live context resolves once before Docker registrations are constructed",
       calls.push(context);
       return "team-dev" as DockerContext;
     },
-    async execute(): Promise<never> { throw new Error("not used during startup"); }
+    async execute(): Promise<never> {
+      throw new Error("not used during startup");
+    }
   };
   const arguments_ = parseAskArguments(["ask", "what happened?", "--docker-context", "team-dev", "--verbose"]);
 
@@ -48,7 +42,9 @@ test("a live context resolves once before Docker registrations are constructed",
       assert.equal(scope.commandTimeoutMs, 10_000);
       return [];
     },
-    reportProgress(event) { progress.push(formatVerboseProgress(event)); }
+    reportProgress(event) {
+      progress.push(formatVerboseProgress(event));
+    }
   });
 
   assert.deepEqual(calls, ["team-dev"]);
@@ -67,7 +63,9 @@ test("fixture startup does not consult or launch the Docker adapter", async () =
         dockerUsed = true;
         return "must-not-be-used" as DockerContext;
       },
-      async execute(): Promise<never> { throw new Error("not used during fixture startup"); }
+      async execute(): Promise<never> {
+        throw new Error("not used during fixture startup");
+      }
     },
     createDockerTools() {
       dockerUsed = true;
@@ -84,8 +82,16 @@ test("fixture startup does not consult or launch the Docker adapter", async () =
 });
 
 test("verbose rendering accepts only safe progress metadata", () => {
-  assert.equal(formatVerboseProgress({
-    kind: "tool-complete", toolName: "docker_logs", resourceKind: "container", durationMs: 12,
-    completion: "completed", truncated: true, evidenceId: "E4"
-  }), "Docker tool docker_logs resource=container durationMs=12 completion=completed truncated=true evidence=E4");
+  assert.equal(
+    formatVerboseProgress({
+      kind: "tool-complete",
+      toolName: "docker_logs",
+      resourceKind: "container",
+      durationMs: 12,
+      completion: "completed",
+      truncated: true,
+      evidenceId: "E4"
+    }),
+    "Docker tool docker_logs resource=container durationMs=12 completion=completed truncated=true evidence=E4"
+  );
 });

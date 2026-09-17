@@ -25,23 +25,27 @@ test("the loop attaches evidence before accepting a final answer", async () => {
   const registry = new ToolRegistry();
   registry.register(tool);
   const controller = new AbortController();
-  const result = await investigate("Why did checkout exit?", {
-    provider,
-    registry,
-    systemPrompt: "Investigate.",
-    limits: {
-      maxModelCalls: 3,
-      maxToolCalls: 2,
-      deadlineMs: 1_000,
-      modelTimeoutMs: 100,
-      subprocessTimeoutMs: 100,
-      maxConcurrentToolCalls: 1,
-      maxLogLines: 100,
-      maxRowsPerResult: 100,
-      maxCharsPerResult: 1_000,
-      maxEvidenceChars: 2_000
-    }
-  }, controller.signal);
+  const result = await investigate(
+    "Why did checkout exit?",
+    {
+      provider,
+      registry,
+      systemPrompt: "Investigate.",
+      limits: {
+        maxModelCalls: 3,
+        maxToolCalls: 2,
+        deadlineMs: 1_000,
+        modelTimeoutMs: 100,
+        subprocessTimeoutMs: 100,
+        maxConcurrentToolCalls: 1,
+        maxLogLines: 100,
+        maxRowsPerResult: 100,
+        maxCharsPerResult: 1_000,
+        maxEvidenceChars: 2_000
+      }
+    },
+    controller.signal
+  );
 
   assert.equal(result.complete, true);
   assert.equal(result.evidence[0]?.id, "E1");
@@ -74,13 +78,19 @@ test("results expose deterministic citation validation against retained, not mer
     });
   }
 
-  const result = await investigate("question", dependencies(provider, registry, {
-    maxToolCalls: 3,
-    maxConcurrentToolCalls: 3,
-    maxEvidenceChars: 11
-  }));
+  const result = await investigate(
+    "question",
+    dependencies(provider, registry, {
+      maxToolCalls: 3,
+      maxConcurrentToolCalls: 3,
+      maxEvidenceChars: 11
+    })
+  );
 
-  assert.deepEqual(result.evidence.map((item) => item.id), ["E1", "E2"]);
+  assert.deepEqual(
+    result.evidence.map((item) => item.id),
+    ["E1", "E2"]
+  );
   assert.deepEqual(result.citationValidation, {
     hasCitations: true,
     citedEvidenceIds: ["E2", "E1", "E2", "E3", "E1", "E9"],
@@ -102,10 +112,17 @@ test("partial-path synthesis validates citations using only retained evidence", 
     },
     { content: "Partial synthesis [E1] and [E2].", toolCalls: [] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => ({ status: "success", content: "retained", metadata: { resource: "inspect", collectedAt: "now" } })
-  }), { maxModelCalls: 2, maxToolCalls: 1 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => ({ status: "success", content: "retained", metadata: { resource: "inspect", collectedAt: "now" } })
+      }),
+      { maxModelCalls: 2, maxToolCalls: 1 }
+    )
+  );
 
   assert.equal(result.complete, true);
   assert.deepEqual(result.citationValidation.validEvidenceIds, ["E1"]);
@@ -116,7 +133,9 @@ test("caller cancellation propagates to the active derived child signal", async 
   let modelSignal: AbortSignal | undefined;
   let toolSignal: AbortSignal | undefined;
   let resolveToolStarted: (() => void) | undefined;
-  const toolStarted = new Promise<void>((resolve) => { resolveToolStarted = resolve; });
+  const toolStarted = new Promise<void>((resolve) => {
+    resolveToolStarted = resolve;
+  });
   const provider: LlmProvider = {
     respond: async (_messages, _tools, signal) => {
       modelSignal = signal;
@@ -199,10 +218,19 @@ test("reserves the last model call for empty-tools synthesis with ordered retain
 
   assert.equal(result.complete, true);
   assert.equal(provider.requests.length, 2);
-  assert.deepEqual(provider.requests[1]?.map((message) => message.role), ["system", "user", "assistant", "tool", "tool"]);
-  assert.deepEqual(provider.requests[1]?.filter((message) => message.role === "tool").map((message) => (message as Extract<Message, { role: "tool" }>).toolCallId), ["call-first", "call-second"]);
+  assert.deepEqual(
+    provider.requests[1]?.map((message) => message.role),
+    ["system", "user", "assistant", "tool", "tool"]
+  );
+  assert.deepEqual(
+    provider.requests[1]?.filter((message) => message.role === "tool").map((message) => (message as Extract<Message, { role: "tool" }>).toolCallId),
+    ["call-first", "call-second"]
+  );
   assert.deepEqual(provider.tools, [2, 0]);
-  assert.deepEqual(result.evidence.map((item) => item.id), ["E1", "E2"]);
+  assert.deepEqual(
+    result.evidence.map((item) => item.id),
+    ["E1", "E2"]
+  );
 });
 
 test("tools requested by final synthesis are never dispatched and yield a deterministic partial", async () => {
@@ -210,13 +238,20 @@ test("tools requested by final synthesis are never dispatched and yield a determ
   const provider = new ScriptedProvider([
     { content: "I should not be able to run this.", toolCalls: [{ id: "synthesis-call", name: "inspect", arguments: {} }] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => {
-      executions += 1;
-      return { status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } };
-    }
-  }), { maxModelCalls: 1 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => {
+          executions += 1;
+          return { status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } };
+        }
+      }),
+      { maxModelCalls: 1 }
+    )
+  );
 
   assert.equal(executions, 0);
   assert.equal(result.complete, false);
@@ -235,23 +270,32 @@ test("failed synthesis preserves the originating terminal reason", async () => {
   }[] = [
     {
       name: "model limit",
-      provider: { respond: async () => { throw new Error("synthesis failed"); } },
+      provider: {
+        respond: async () => {
+          throw new Error("synthesis failed");
+        }
+      },
       registry: new ToolRegistry(),
       overrides: { maxModelCalls: 1 },
       reason: "model-limit"
     },
     {
       name: "tool limit",
-      provider: new ScriptedProvider([
-        { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] }
-      ]),
-      registry: registryWithTool({ name: "inspect", execute: async () => ({ status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } }) }),
+      provider: new ScriptedProvider([{ content: "Inspecting.", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] }]),
+      registry: registryWithTool({
+        name: "inspect",
+        execute: async () => ({ status: "success", content: "unreachable", metadata: { resource: "inspect", collectedAt: "now" } })
+      }),
       overrides: { maxModelCalls: 2, maxToolCalls: 0 },
       reason: "tool-limit"
     },
     {
       name: "provider failure",
-      provider: { respond: async () => { throw new Error("provider failed"); } },
+      provider: {
+        respond: async () => {
+          throw new Error("provider failed");
+        }
+      },
       registry: new ToolRegistry(),
       overrides: { maxModelCalls: 2 },
       reason: "provider-error"
@@ -273,13 +317,20 @@ test("a duplicate-only turn synthesizes once and preserves its stop reason on fa
     { content: "third", toolCalls: [{ id: "call-3", name: "inspect", arguments: { target: "api" } }] }
   ]);
   let executions = 0;
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => {
-      executions += 1;
-      return { status: "success", content: "unchanged", metadata: { resource: "inspect", collectedAt: "now" } };
-    }
-  }), { maxModelCalls: 4, maxToolCalls: 3 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => {
+          executions += 1;
+          return { status: "success", content: "unchanged", metadata: { resource: "inspect", collectedAt: "now" } };
+        }
+      }),
+      { maxModelCalls: 4, maxToolCalls: 3 }
+    )
+  );
 
   assert.equal(executions, 2);
   assert.equal(provider.requests.length, 4);
@@ -292,7 +343,9 @@ test("tool timeout aborts only its child and allows the next model call", async 
   const clock = new FakeClock();
   const toolSignals: AbortSignal[] = [];
   let resolveToolStarted: (() => void) | undefined;
-  const toolStarted = new Promise<void>((resolve) => { resolveToolStarted = resolve; });
+  const toolStarted = new Promise<void>((resolve) => {
+    resolveToolStarted = resolve;
+  });
   const provider = new ScriptedProvider([
     { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "wait", arguments: {} }] },
     { content: "The tool timed out.", toolCalls: [] }
@@ -343,16 +396,17 @@ test("a late tool completion cannot add evidence after the deadline", async () =
   const clock = new FakeClock();
   let finishTool: ((result: { status: "success"; content: string; metadata: { resource: string; collectedAt: string } }) => void) | undefined;
   let resolveToolStarted: (() => void) | undefined;
-  const toolStarted = new Promise<void>((resolve) => { resolveToolStarted = resolve; });
-  const provider = new ScriptedProvider([
-    { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "late", arguments: {} }] }
-  ]);
+  const toolStarted = new Promise<void>((resolve) => {
+    resolveToolStarted = resolve;
+  });
+  const provider = new ScriptedProvider([{ content: "Inspecting.", toolCalls: [{ id: "call-1", name: "late", arguments: {} }] }]);
   const registry = registryWithTool({
     name: "late",
-    execute: async () => await new Promise((resolve) => {
-      finishTool = resolve;
-      resolveToolStarted?.();
-    })
+    execute: async () =>
+      await new Promise((resolve) => {
+        finishTool = resolve;
+        resolveToolStarted?.();
+      })
   });
   const pending = investigate("question", dependencies(provider, registry, { deadlineMs: 5, subprocessTimeoutMs: 20, clock }));
 
@@ -370,17 +424,16 @@ test("a late tool completion cannot add evidence after the deadline", async () =
 test("a bounded tool batch preserves provider call order and matching IDs", async () => {
   const deferred = new Map<string, () => void>();
   const started = new Map<string, () => void>();
-  const startedPromises = ["success-first", "executor-error", "success-last"].map((name) =>
-    new Promise<void>((resolve) => started.set(name, resolve))
-  );
+  const startedPromises = ["success-first", "executor-error", "success-last"].map((name) => new Promise<void>((resolve) => started.set(name, resolve)));
   let active = 0;
   let peakActive = 0;
-  const wait = (name: string) => new Promise<void>((resolve) => {
-    deferred.set(name, () => resolve());
-    active += 1;
-    peakActive = Math.max(peakActive, active);
-    started.get(name)?.();
-  });
+  const wait = (name: string) =>
+    new Promise<void>((resolve) => {
+      deferred.set(name, () => resolve());
+      active += 1;
+      peakActive = Math.max(peakActive, active);
+      started.get(name)?.();
+    });
   let secondRequest: readonly Message[] | undefined;
   let requests = 0;
   const provider: LlmProvider = {
@@ -420,7 +473,9 @@ test("a bounded tool batch preserves provider call order and matching IDs", asyn
     name: "invalid",
     description: "invalid",
     parameters: {},
-    parseArguments: () => { throw new Error("bad arguments"); },
+    parseArguments: () => {
+      throw new Error("bad arguments");
+    },
     execute: async () => ({ status: "success", content: "unreachable", metadata: { resource: "invalid", collectedAt: "now" } })
   });
   registry.register({
@@ -446,18 +501,24 @@ test("a bounded tool batch preserves provider call order and matching IDs", asyn
 
   assert.equal(result.complete, true);
   assert.equal(peakActive, 2);
-  assert.deepEqual(result.evidence.map((item) => [item.id, item.toolCallId]), [
-    ["E1", "call-success-first"],
-    ["E2", "call-success-last"]
-  ]);
+  assert.deepEqual(
+    result.evidence.map((item) => [item.id, item.toolCallId]),
+    [
+      ["E1", "call-success-first"],
+      ["E2", "call-success-last"]
+    ]
+  );
   const toolMessages = secondRequest?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool") ?? [];
-  assert.deepEqual(toolMessages.map((message) => [message.name, message.toolCallId]), [
-    ["success-first", "call-success-first"],
-    ["invalid", "call-invalid"],
-    ["unknown", "call-unknown"],
-    ["executor-error", "call-executor-error"],
-    ["success-last", "call-success-last"]
-  ]);
+  assert.deepEqual(
+    toolMessages.map((message) => [message.name, message.toolCallId]),
+    [
+      ["success-first", "call-success-first"],
+      ["invalid", "call-invalid"],
+      ["unknown", "call-unknown"],
+      ["executor-error", "call-executor-error"],
+      ["success-last", "call-success-last"]
+    ]
+  );
   assert.match(toolMessages[1]?.content ?? "", /invalid-arguments/);
   assert.match(toolMessages[2]?.content ?? "", /unknown-tool/);
   assert.match(toolMessages[3]?.content ?? "", /internal/);
@@ -491,24 +552,40 @@ test("successful dispatches retain only safe, budgeted evidence and provider his
     });
   }
 
-  const result = await investigate("question", dependencies(provider, registry, {
-    maxToolCalls: 3,
-    maxConcurrentToolCalls: 3,
-    maxCharsPerResult: 4,
-    maxEvidenceChars: 6,
-    knownSecrets: [secret]
-  }));
+  const result = await investigate(
+    "question",
+    dependencies(provider, registry, {
+      maxToolCalls: 3,
+      maxConcurrentToolCalls: 3,
+      maxCharsPerResult: 4,
+      maxEvidenceChars: 6,
+      knownSecrets: [secret]
+    })
+  );
 
-  assert.deepEqual(result.evidence.map((item) => [item.id, item.toolCallId, item.content]), [
-    ["E1", "call-first", "[RED"],
-    ["E2", "call-prefix", "wx"]
+  assert.deepEqual(
+    result.evidence.map((item) => [item.id, item.toolCallId, item.content]),
+    [
+      ["E1", "call-first", "[RED"],
+      ["E2", "call-prefix", "wx"]
+    ]
+  );
+  assert.deepEqual(result.evidence[0]?.evidenceTruncations, [
+    {
+      truncated: true,
+      reason: "character-limit",
+      originalCharacterCount: 17,
+      retainedCharacterCount: 4
+    }
   ]);
-  assert.deepEqual(result.evidence[0]?.evidenceTruncations, [{
-    truncated: true, reason: "character-limit", originalCharacterCount: 17, retainedCharacterCount: 4
-  }]);
-  assert.deepEqual(result.evidence[1]?.evidenceTruncations, [{
-    truncated: true, reason: "evidence-budget", originalCharacterCount: 4, retainedCharacterCount: 2
-  }]);
+  assert.deepEqual(result.evidence[1]?.evidenceTruncations, [
+    {
+      truncated: true,
+      reason: "evidence-budget",
+      originalCharacterCount: 4,
+      retainedCharacterCount: 2
+    }
+  ]);
   const toolMessages = provider.requests[1]?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool") ?? [];
   assert.match(toolMessages[0]?.content ?? "", /redacted.*truncated: character-limit/);
   assert.match(toolMessages[1]?.content ?? "", /truncated: evidence-budget/);
@@ -522,10 +599,17 @@ test("a zero evidence budget omits successful observations without allocating ID
     { content: "Inspecting.", toolCalls: [{ id: "call-1", name: "inspect", arguments: {} }] },
     { content: "Done.", toolCalls: [] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => ({ status: "success", content: "observation", metadata: { resource: "inspect", collectedAt: "now" } })
-  }), { maxEvidenceChars: 0 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => ({ status: "success", content: "observation", metadata: { resource: "inspect", collectedAt: "now" } })
+      }),
+      { maxEvidenceChars: 0 }
+    )
+  );
 
   assert.deepEqual(result.evidence, []);
   const toolMessage = provider.requests[1]?.find((message): message is Extract<Message, { role: "tool" }> => message.role === "tool");
@@ -546,18 +630,35 @@ test("suppresses a third canonical-identical completed call while retaining its 
     },
     { content: "Done.", toolCalls: [] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => {
-      executions += 1;
-      return { status: "success", content: "same result", metadata: { resource: "inspect", collectedAt: "now" } };
-    }
-  }), { maxModelCalls: 4, maxToolCalls: 4 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => {
+          executions += 1;
+          return { status: "success", content: "same result", metadata: { resource: "inspect", collectedAt: "now" } };
+        }
+      }),
+      { maxModelCalls: 4, maxToolCalls: 4 }
+    )
+  );
 
   assert.equal(result.complete, true);
   assert.equal(executions, 2);
-  const suppressed = provider.requests[3]?.filter((message): message is Extract<Message, { role: "tool" }> => message.role === "tool" && (message.toolCallId === "call-3" || message.toolCallId === "call-4")) ?? [];
-  assert.deepEqual(suppressed.map((message) => [message.name, message.toolCallId]), [["inspect", "call-3"], ["inspect", "call-4"]]);
+  const suppressed =
+    provider.requests[3]?.filter(
+      (message): message is Extract<Message, { role: "tool" }> =>
+        message.role === "tool" && (message.toolCallId === "call-3" || message.toolCallId === "call-4")
+    ) ?? [];
+  assert.deepEqual(
+    suppressed.map((message) => [message.name, message.toolCallId]),
+    [
+      ["inspect", "call-3"],
+      ["inspect", "call-4"]
+    ]
+  );
   assert.ok(suppressed.every((message) => /^Tool error \(duplicate\):/.test(message.content)));
 });
 
@@ -565,17 +666,27 @@ test("a changed completed result resets duplicate suppression", async () => {
   const outputs = ["first", "changed", "changed"];
   let executions = 0;
   const provider = new ScriptedProvider([
-    ...Array.from({ length: 4 }, (_, index) => ({ content: `turn ${index}`, toolCalls: [{ id: `call-${index + 1}`, name: "inspect", arguments: { target: "api" } }] })),
+    ...Array.from({ length: 4 }, (_, index) => ({
+      content: `turn ${index}`,
+      toolCalls: [{ id: `call-${index + 1}`, name: "inspect", arguments: { target: "api" } }]
+    })),
     { content: "Done.", toolCalls: [] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => {
-      const content = outputs[executions]!;
-      executions += 1;
-      return { status: "success", content, metadata: { resource: "inspect", collectedAt: "now" } };
-    }
-  }), { maxModelCalls: 5, maxToolCalls: 5 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => {
+          const content = outputs[executions]!;
+          executions += 1;
+          return { status: "success", content, metadata: { resource: "inspect", collectedAt: "now" } };
+        }
+      }),
+      { maxModelCalls: 5, maxToolCalls: 5 }
+    )
+  );
 
   assert.equal(result.complete, true);
   assert.equal(executions, 3);
@@ -591,13 +702,20 @@ test("completed tool errors are safely tracked and later receive duplicate tool 
     { content: "third", toolCalls: [{ id: "call-3", name: "inspect", arguments: {} }] },
     { content: "Done.", toolCalls: [] }
   ]);
-  const result = await investigate("question", dependencies(provider, registryWithTool({
-    name: "inspect",
-    execute: async () => {
-      executions += 1;
-      return { status: "error", code: "unavailable", message: "Service is unavailable.", retryable: false };
-    }
-  }), { maxModelCalls: 4, maxToolCalls: 3 }));
+  const result = await investigate(
+    "question",
+    dependencies(
+      provider,
+      registryWithTool({
+        name: "inspect",
+        execute: async () => {
+          executions += 1;
+          return { status: "error", code: "unavailable", message: "Service is unavailable.", retryable: false };
+        }
+      }),
+      { maxModelCalls: 4, maxToolCalls: 3 }
+    )
+  );
 
   assert.equal(result.complete, true);
   assert.equal(executions, 2);
@@ -613,11 +731,7 @@ class ScriptedProvider implements LlmProvider {
 
   public constructor(private readonly responses: AssistantResponse[]) {}
 
-  public async respond(
-    messages: readonly Message[],
-    _tools: readonly ToolDefinition[],
-    signal: AbortSignal
-  ): Promise<AssistantResponse> {
+  public async respond(messages: readonly Message[], _tools: readonly ToolDefinition[], signal: AbortSignal): Promise<AssistantResponse> {
     this.signals.push(signal);
     this.requests.push([...structuredClone(messages)]);
     this.tools.push(_tools.length);
@@ -694,9 +808,7 @@ class FakeClock implements InvestigationTimers {
   public advance(delayMs: number): void {
     this.now += delayMs;
     for (;;) {
-      const next = [...this.timers.entries()]
-        .filter(([, timer]) => timer.dueAt <= this.now)
-        .sort(([, left], [, right]) => left.dueAt - right.dueAt)[0];
+      const next = [...this.timers.entries()].filter(([, timer]) => timer.dueAt <= this.now).sort(([, left], [, right]) => left.dueAt - right.dueAt)[0];
       if (!next) return;
       this.timers.delete(next[0]);
       next[1].callback();

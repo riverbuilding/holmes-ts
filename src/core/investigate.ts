@@ -32,10 +32,7 @@ export interface InvestigationTimers {
 
 type AbortCause = "caller" | "deadline" | "operation-timeout";
 
-type OperationOutcome<T> =
-  | { state: "completed"; value: T }
-  | { state: "failed" }
-  | { state: "aborted"; cause: AbortCause };
+type OperationOutcome<T> = { state: "completed"; value: T } | { state: "failed" } | { state: "aborted"; cause: AbortCause };
 
 const systemTimers: InvestigationTimers = {
   setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
@@ -182,10 +179,7 @@ export async function investigate(
     return undefined;
   }
 
-  async function runChild<T>(
-    operation: (childSignal: AbortSignal) => Promise<T>,
-    operationTimeoutMs: number
-  ): Promise<OperationOutcome<T>> {
+  async function runChild<T>(operation: (childSignal: AbortSignal) => Promise<T>, operationTimeoutMs: number): Promise<OperationOutcome<T>> {
     if (signal.aborted) return { state: "aborted", cause: "caller" };
     if (deadlineController.signal.aborted || now() >= deadlineAt) return { state: "aborted", cause: "deadline" };
 
@@ -205,9 +199,7 @@ export async function investigate(
     // The deadline controller owns the earlier deadline. A per-operation timer
     // is installed only when it can fire first, keeping its abort local.
     const remainingMs = Math.max(0, deadlineAt - now());
-    const timeoutTimer = operationTimeoutMs < remainingMs
-      ? timers.setTimeout(() => abort("operation-timeout"), operationTimeoutMs)
-      : undefined;
+    const timeoutTimer = operationTimeoutMs < remainingMs ? timers.setTimeout(() => abort("operation-timeout"), operationTimeoutMs) : undefined;
     const aborted = new Promise<OperationOutcome<T>>((resolve) => {
       controller.signal.addEventListener("abort", () => resolve({ state: "aborted", cause: cause ?? "operation-timeout" }), { once: true });
     });
@@ -245,10 +237,7 @@ export async function investigate(
           continue;
         }
         toolCalls += 1;
-        outcomes[index] = await runChild(
-          (childSignal) => dependencies.registry.dispatch(call, childSignal),
-          dependencies.limits.subprocessTimeoutMs
-        );
+        outcomes[index] = await runChild((childSignal) => dependencies.registry.dispatch(call, childSignal), dependencies.limits.subprocessTimeoutMs);
       }
     };
 
@@ -266,9 +255,7 @@ export async function investigate(
   }
 
   function isDuplicateOutcome(outcome: OperationOutcome<ToolExecutionResult>): boolean {
-    return outcome.state === "completed"
-      && outcome.value.status === "error"
-      && outcome.value.code === "duplicate";
+    return outcome.state === "completed" && outcome.value.status === "error" && outcome.value.code === "duplicate";
   }
 
   async function synthesizeOrPartial(reason: InvestigationStopReason): Promise<InvestigationResult> {
@@ -277,10 +264,7 @@ export async function investigate(
     if (modelCalls >= dependencies.limits.maxModelCalls || stopReason() !== undefined) return partial(reason);
 
     modelCalls += 1;
-    const synthesis = await runChild(
-      (childSignal) => dependencies.provider.respond(messages, [], childSignal),
-      dependencies.limits.modelTimeoutMs
-    );
+    const synthesis = await runChild((childSignal) => dependencies.provider.respond(messages, [], childSignal), dependencies.limits.modelTimeoutMs);
     if (synthesis.state !== "completed" || synthesis.value.toolCalls.length !== 0) return partial(reason);
 
     // A completed response that raced a stop is not safe to present as final.
@@ -295,7 +279,10 @@ export async function investigate(
       evidence,
       complete,
       ...(reason === undefined ? {} : { reason }),
-      citationValidation: validateCitations(answer, evidence.map((item) => item.id))
+      citationValidation: validateCitations(
+        answer,
+        evidence.map((item) => item.id)
+      )
     };
   }
 }

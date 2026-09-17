@@ -68,17 +68,17 @@ Docker Desktop-only implementation.
 
 ### Full upstream `docker/core` tool inventory
 
-| Upstream tool | TypeScript behavior | Diagnostic use |
-|---|---|---|
-| `docker_images` | List images with repository, tag, ID, creation time, size, and dangling state. | Missing/wrong image references and image inventory. |
-| `docker_ps` | List running containers. | Discover active targets and state. |
-| `docker_ps_all` | List all containers, including stopped ones. | Find exited, created, and historical targets. |
-| `docker_inspect` | Inspect one validated container or image, projecting relevant structured fields. | State, health, exit details, command, mounts, networks, image config, and metadata. |
-| `docker_logs` | Retrieve bounded timestamped logs for one validated container. | Application failures and runtime evidence. |
-| `docker_top` | Show processes for one running container. | Hung processes, unexpected commands, and process presence. |
-| `docker_events` | Retrieve a bounded historical event window, optionally narrowed to one validated container. | Start/stop/die/kill/health and daemon-side chronology. |
-| `docker_history` | Show bounded layer history for one validated image reference/ID. | Provenance, unexpected layers, and image-size changes. |
-| `docker_diff` | Show bounded added/changed/deleted writable-layer paths for one validated container. | Runtime filesystem mutation. |
+| Upstream tool    | TypeScript behavior                                                                         | Diagnostic use                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `docker_images`  | List images with repository, tag, ID, creation time, size, and dangling state.              | Missing/wrong image references and image inventory.                                 |
+| `docker_ps`      | List running containers.                                                                    | Discover active targets and state.                                                  |
+| `docker_ps_all`  | List all containers, including stopped ones.                                                | Find exited, created, and historical targets.                                       |
+| `docker_inspect` | Inspect one validated container or image, projecting relevant structured fields.            | State, health, exit details, command, mounts, networks, image config, and metadata. |
+| `docker_logs`    | Retrieve bounded timestamped logs for one validated container.                              | Application failures and runtime evidence.                                          |
+| `docker_top`     | Show processes for one running container.                                                   | Hung processes, unexpected commands, and process presence.                          |
+| `docker_events`  | Retrieve a bounded historical event window, optionally narrowed to one validated container. | Start/stop/die/kill/health and daemon-side chronology.                              |
+| `docker_history` | Show bounded layer history for one validated image reference/ID.                            | Provenance, unexpected layers, and image-size changes.                              |
+| `docker_diff`    | Show bounded added/changed/deleted writable-layer paths for one validated container.        | Runtime filesystem mutation.                                                        |
 
 The tool names above are the external compatibility contract. Preserve their
 upstream singular resource parameters (`container_id`, `image_id`, or
@@ -210,13 +210,13 @@ only observations, never a prewritten diagnosis.
 Bundle deterministic scripted-provider tests and real-model fixture evaluation.
 The latter is a quality gate, not proof of general diagnostic correctness.
 
-| Scenario | Required tool/evidence behavior | Required conclusion |
-|---|---|---|
-| Missing configuration | Locate exited container; inspect and read logs. | Identify the missing setting only when logs/state support it. |
-| Unhealthy/running container | Discover, inspect health, inspect events, read logs. | Separate health symptom from supported cause. |
-| Writable-layer mutation | Inspect container and use `docker_diff`; inspect processes/logs as relevant. | Identify observed changed paths without claiming their cause unless supported. |
-| Image regression | Discover image/container; inspect image and call history. | Identify the relevant image/layer evidence and safe next checks. |
-| Incomplete evidence | Handle no logs, missing resource, or failed event query. | State what is known and what cannot be established. |
+| Scenario                    | Required tool/evidence behavior                                              | Required conclusion                                                            |
+| --------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Missing configuration       | Locate exited container; inspect and read logs.                              | Identify the missing setting only when logs/state support it.                  |
+| Unhealthy/running container | Discover, inspect health, inspect events, read logs.                         | Separate health symptom from supported cause.                                  |
+| Writable-layer mutation     | Inspect container and use `docker_diff`; inspect processes/logs as relevant. | Identify observed changed paths without claiming their cause unless supported. |
+| Image regression            | Discover image/container; inspect image and call history.                    | Identify the relevant image/layer evidence and safe next checks.               |
+| Incomplete evidence         | Handle no logs, missing resource, or failed event query.                     | State what is known and what cannot be established.                            |
 
 Definition of done:
 
@@ -242,14 +242,14 @@ Definition of done:
 
 ## 7. Delivery sequence
 
-| Milestone | Deliverables | Exit condition |
-|---|---|---|
-| 1. Port specification | Complete port map, attribution, exact schemas, prompt adaptation, and provider spike. | One validated Docker tool call round trip with a real provider. |
-| 2. Safe execution foundation | Registry, Docker CLI adapter, redaction, budgets, deadlines, cancellation, and loop. | Deterministic engine/security tests pass. |
-| 3. Container lifecycle suite | `docker_ps`, `docker_ps_all`, `docker_inspect`, `docker_logs`, `docker_events`, and fixtures. | Live and fixture parity for crash/health cases. |
-| 4. Image and runtime suite | `docker_images`, `docker_top`, `docker_history`, `docker_diff`, and fixtures. | Live and fixture parity for every remaining tool. |
-| 5. Prompt/output quality | Final synthesis, citation validation, concise rendering, and real-model evaluations. | All fixture gates and partial-result behavior pass. |
-| 6. Documentation/release | Quickstart, walkthrough, security/data handling, limits, port map, and license notices. | Fresh-checkout verification passes. |
+| Milestone                    | Deliverables                                                                                  | Exit condition                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1. Port specification        | Complete port map, attribution, exact schemas, prompt adaptation, and provider spike.         | One validated Docker tool call round trip with a real provider. |
+| 2. Safe execution foundation | Registry, Docker CLI adapter, redaction, budgets, deadlines, cancellation, and loop.          | Deterministic engine/security tests pass.                       |
+| 3. Container lifecycle suite | `docker_ps`, `docker_ps_all`, `docker_inspect`, `docker_logs`, `docker_events`, and fixtures. | Live and fixture parity for crash/health cases.                 |
+| 4. Image and runtime suite   | `docker_images`, `docker_top`, `docker_history`, `docker_diff`, and fixtures.                 | Live and fixture parity for every remaining tool.               |
+| 5. Prompt/output quality     | Final synthesis, citation validation, concise rendering, and real-model evaluations.          | All fixture gates and partial-result behavior pass.             |
+| 6. Documentation/release     | Quickstart, walkthrough, security/data handling, limits, port map, and license notices.       | Fresh-checkout verification passes.                             |
 
 Re-estimate after milestone 1. This is no longer a 7–9 day MVP: a reasonable
 planning range is 15–22 engineering days for one developer, plus environment-
@@ -257,13 +257,13 @@ specific Docker and model-evaluation contingency.
 
 ## 8. Risks and decisions to retain
 
-| Risk | Scope response |
-|---|---|
-| Upstream generic tool commands accept broader input than is safe | Preserve diagnostic coverage, but implement strictly validated argument schemas and fixed Docker arguments. |
-| `docker events` can block forever | Require a historical window, bounded result count, subprocess timeout, and overall cancellation. |
-| Inspect/log output leaks secrets | Project/redact known sensitive fields, bound content, warn users before live evidence leaves the machine. |
-| Full HolmesGPT scope creeps in | The nine-tool Docker inventory and applicable prompt rules are the boundary; all other toolsets remain excluded. |
-| Model stops at a symptom | Prompt rules, mandatory relevant logs/state checks, fixture gates, and evidence-citation review enforce deeper investigation. |
+| Risk                                                             | Scope response                                                                                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Upstream generic tool commands accept broader input than is safe | Preserve diagnostic coverage, but implement strictly validated argument schemas and fixed Docker arguments.                   |
+| `docker events` can block forever                                | Require a historical window, bounded result count, subprocess timeout, and overall cancellation.                              |
+| Inspect/log output leaks secrets                                 | Project/redact known sensitive fields, bound content, warn users before live evidence leaves the machine.                     |
+| Full HolmesGPT scope creeps in                                   | The nine-tool Docker inventory and applicable prompt rules are the boundary; all other toolsets remain excluded.              |
+| Model stops at a symptom                                         | Prompt rules, mandatory relevant logs/state checks, fixture gates, and evidence-citation review enforce deeper investigation. |
 
 The first implementation task is milestone 1: write `docs/upstream-port-map.md`,
 turn the nine upstream tools into exact TypeScript schemas, and prove one

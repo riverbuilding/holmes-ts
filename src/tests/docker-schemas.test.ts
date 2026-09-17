@@ -12,7 +12,11 @@ test("all nine Docker schemas accept supported arguments and apply defaults", ()
     ["docker_inspect", { container_or_image_id: "api" }, { container_or_image_id: "api" }],
     ["docker_logs", { container_id: "api" }, { container_id: "api", tail: 100 }],
     ["docker_top", { container_id: "api" }, { container_id: "api" }],
-    ["docker_events", { container_id: "api", since: "2026-09-09T10:00:00Z", until: "2026-09-09T11:00:00Z" }, { container_id: "api", since: "2026-09-09T10:00:00Z", until: "2026-09-09T11:00:00Z", limit: 100 }],
+    [
+      "docker_events",
+      { container_id: "api", since: "2026-09-09T10:00:00Z", until: "2026-09-09T11:00:00Z" },
+      { container_id: "api", since: "2026-09-09T10:00:00Z", until: "2026-09-09T11:00:00Z", limit: 100 }
+    ],
     ["docker_history", { image_id: "repo/api:latest" }, { image_id: "repo/api:latest", limit: 100 }],
     ["docker_diff", { container_id: "api" }, { container_id: "api" }]
   ];
@@ -25,9 +29,12 @@ test("all schemas reject unknown keys", () => {
 
 test("resource schemas reject empty and flag-like identifiers", () => {
   const resources: Array<[string, string, Record<string, string>]> = [
-    ["docker_inspect", "container_or_image_id", {}], ["docker_logs", "container_id", {}], ["docker_top", "container_id", {}],
+    ["docker_inspect", "container_or_image_id", {}],
+    ["docker_logs", "container_id", {}],
+    ["docker_top", "container_id", {}],
     ["docker_events", "container_id", { since: "2026-09-09T10:00:00Z", until: "2026-09-09T11:00:00Z" }],
-    ["docker_history", "image_id", {}], ["docker_diff", "container_id", {}]
+    ["docker_history", "image_id", {}],
+    ["docker_diff", "container_id", {}]
   ];
   for (const [name, field, shared] of resources) {
     assert.throws(() => tool(name).parseArguments({ ...shared, [field]: "" }));

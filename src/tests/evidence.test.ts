@@ -66,9 +66,14 @@ test("collector redacts before clipping, preserves source truncation, and does n
   assert.equal(retained.evidence?.content, "[REDACTED]");
   assert.equal(retained.evidence?.metadata.toolCallId, "call-1");
   assert.deepEqual(retained.evidence?.truncation, sourceTruncation);
-  assert.deepEqual(retained.evidence?.evidenceTruncations, [{
-    truncated: true, reason: "character-limit", originalCharacterCount: 17, retainedCharacterCount: 10
-  }]);
+  assert.deepEqual(retained.evidence?.evidenceTruncations, [
+    {
+      truncated: true,
+      reason: "character-limit",
+      originalCharacterCount: 17,
+      retainedCharacterCount: 10
+    }
+  ]);
   assert.equal(retained.redacted, true);
   assert.equal(metadata.toolCallId, "wrong-call-id");
   assert.deepEqual(metadata.attributes, { nested: { safe: true } });
@@ -81,14 +86,24 @@ test("collector clips each result, accounts for the total budget, and omits late
   const third = collector.retain(evidenceInput("call-3", "later"));
 
   assert.equal(first.evidence?.content, "abcde");
-  assert.deepEqual(first.evidence?.evidenceTruncations, [{
-    truncated: true, reason: "character-limit", originalCharacterCount: 8, retainedCharacterCount: 5
-  }]);
+  assert.deepEqual(first.evidence?.evidenceTruncations, [
+    {
+      truncated: true,
+      reason: "character-limit",
+      originalCharacterCount: 8,
+      retainedCharacterCount: 5
+    }
+  ]);
   assert.equal(second.evidence?.id, "E2");
   assert.equal(second.evidence?.content, "wx");
-  assert.deepEqual(second.evidence?.evidenceTruncations, [{
-    truncated: true, reason: "evidence-budget", originalCharacterCount: 4, retainedCharacterCount: 2
-  }]);
+  assert.deepEqual(second.evidence?.evidenceTruncations, [
+    {
+      truncated: true,
+      reason: "evidence-budget",
+      originalCharacterCount: 4,
+      retainedCharacterCount: 2
+    }
+  ]);
   assert.equal(third.evidence, undefined);
   assert.equal(third.omitted, true);
   assert.equal(third.retainedContent, "");

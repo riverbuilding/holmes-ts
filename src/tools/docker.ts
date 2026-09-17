@@ -1,6 +1,15 @@
 import { DEFAULT_LIMITS, type JsonObject, type ToolExecutionResult, type ToolRegistration } from "../core/types.js";
 import type { DockerCli } from "./docker-cli.js";
-import { projectContainerRows, projectDiffRows, projectEvents, projectImageHistory, projectImageRows, projectInspect, projectLogs, projectProcessRows } from "./docker-projection.js";
+import {
+  projectContainerRows,
+  projectDiffRows,
+  projectEvents,
+  projectImageHistory,
+  projectImageRows,
+  projectInspect,
+  projectLogs,
+  projectProcessRows
+} from "./docker-projection.js";
 import { identifier, imageReference, objectShape, positiveBoundedInteger, timeWindow } from "./validation.js";
 
 export interface DockerScope {
@@ -9,9 +18,20 @@ export interface DockerScope {
   commandTimeoutMs?: number;
   now?: () => number;
 }
-export interface DockerLogsArguments { container_id: string; tail: number; }
-export interface DockerEventsArguments { container_id?: string; since: string; until: string; limit: number; }
-export interface DockerHistoryArguments { image_id: string; limit: number; }
+export interface DockerLogsArguments {
+  container_id: string;
+  tail: number;
+}
+export interface DockerEventsArguments {
+  container_id?: string;
+  since: string;
+  until: string;
+  limit: number;
+}
+export interface DockerHistoryArguments {
+  image_id: string;
+  limit: number;
+}
 
 const MAX_ROWS = 100;
 const MAX_LOG_LINES = 100;
@@ -37,7 +57,13 @@ export function createDockerTools(scope: DockerScope): ToolRegistration[] {
 
 function containerDiscoveryTool(name: string, description: string, all: boolean, scope: DockerScope): ToolRegistration<Record<string, never>> {
   return {
-    name, description, parameters: objectSchema({}), parseArguments(input) { objectShape(input, []); return {}; },
+    name,
+    description,
+    parameters: objectSchema({}),
+    parseArguments(input) {
+      objectShape(input, []);
+      return {};
+    },
     async execute(_arguments, signal) {
       if (scope.context === undefined || scope.cli === undefined) return unavailable();
       const command = await scope.cli.execute(
@@ -53,7 +79,8 @@ function containerDiscoveryTool(name: string, description: string, all: boolean,
 
 function dockerInspectTool(scope: DockerScope): ToolRegistration<{ container_or_image_id: string }> {
   return {
-    name: "docker_inspect", description: "Inspect detailed information about a Docker container or image",
+    name: "docker_inspect",
+    description: "Inspect detailed information about a Docker container or image",
     parameters: objectSchema({ container_or_image_id: { type: "string", minLength: 1 } }, ["container_or_image_id"]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_or_image_id"]);
@@ -74,16 +101,16 @@ function dockerInspectTool(scope: DockerScope): ToolRegistration<{ container_or_
 
 function dockerImagesTool(scope: DockerScope): ToolRegistration<Record<string, never>> {
   return {
-    name: "docker_images", description: "List all Docker images",
-    parameters: objectSchema({}), parseArguments(input) { objectShape(input, []); return {}; },
+    name: "docker_images",
+    description: "List all Docker images",
+    parameters: objectSchema({}),
+    parseArguments(input) {
+      objectShape(input, []);
+      return {};
+    },
     async execute(_arguments, signal) {
       if (scope.context === undefined || scope.cli === undefined) return unavailable();
-      const command = await scope.cli.execute(
-        { kind: "image-ls" },
-        scope.context,
-        signal,
-        scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs
-      );
+      const command = await scope.cli.execute({ kind: "image-ls" }, scope.context, signal, scope.commandTimeoutMs ?? DEFAULT_LIMITS.subprocessTimeoutMs);
       return projectImageRows(command, new Date().toISOString(), MAX_ROWS);
     }
   };
@@ -91,7 +118,8 @@ function dockerImagesTool(scope: DockerScope): ToolRegistration<Record<string, n
 
 function dockerTopTool(scope: DockerScope): ToolRegistration<{ container_id: string }> {
   return {
-    name: "docker_top", description: "Display the running processes of a container",
+    name: "docker_top",
+    description: "Display the running processes of a container",
     parameters: objectSchema({ container_id: { type: "string", minLength: 1 } }, ["container_id"]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_id"]);
@@ -110,12 +138,21 @@ function dockerTopTool(scope: DockerScope): ToolRegistration<{ container_id: str
   };
 }
 
-function resourceTool(name: string, description: string, field: "container_id" | "image_id" | "container_or_image_id"): ToolRegistration<Record<typeof field, string>> {
+function resourceTool(
+  name: string,
+  description: string,
+  field: "container_id" | "image_id" | "container_or_image_id"
+): ToolRegistration<Record<typeof field, string>> {
   return {
-    name, description, parameters: objectSchema({ [field]: { type: "string", minLength: 1 } }, [field]),
+    name,
+    description,
+    parameters: objectSchema({ [field]: { type: "string", minLength: 1 } }, [field]),
     parseArguments(input) {
       const arguments_ = objectShape(input, [field]);
-      return { [field]: field === "image_id" ? imageReference(arguments_[field], field) : identifier(arguments_[field], field) } as Record<typeof field, string>;
+      return { [field]: field === "image_id" ? imageReference(arguments_[field], field) : identifier(arguments_[field], field) } as Record<
+        typeof field,
+        string
+      >;
     },
     execute: unavailable
   };
@@ -123,11 +160,18 @@ function resourceTool(name: string, description: string, field: "container_id" |
 
 function dockerLogsTool(scope: DockerScope): ToolRegistration<DockerLogsArguments> {
   return {
-    name: "docker_logs", description: "Fetch the logs of a Docker container",
-    parameters: objectSchema({ container_id: { type: "string", minLength: 1 }, tail: { type: "integer", minimum: 1, maximum: MAX_LOG_LINES, default: MAX_LOG_LINES } }, ["container_id"]),
+    name: "docker_logs",
+    description: "Fetch the logs of a Docker container",
+    parameters: objectSchema(
+      { container_id: { type: "string", minLength: 1 }, tail: { type: "integer", minimum: 1, maximum: MAX_LOG_LINES, default: MAX_LOG_LINES } },
+      ["container_id"]
+    ),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_id", "tail"]);
-      return { container_id: identifier(arguments_.container_id, "container_id"), tail: arguments_.tail === undefined ? MAX_LOG_LINES : positiveBoundedInteger(arguments_.tail, "tail", MAX_LOG_LINES) };
+      return {
+        container_id: identifier(arguments_.container_id, "container_id"),
+        tail: arguments_.tail === undefined ? MAX_LOG_LINES : positiveBoundedInteger(arguments_.tail, "tail", MAX_LOG_LINES)
+      };
     },
     async execute(arguments_, signal) {
       if (scope.context === undefined || scope.cli === undefined) return unavailable();
@@ -144,14 +188,28 @@ function dockerLogsTool(scope: DockerScope): ToolRegistration<DockerLogsArgument
 
 function dockerEventsTool(scope: DockerScope): ToolRegistration<DockerEventsArguments> {
   return {
-    name: "docker_events", description: "Get historical events from the Docker server",
-    parameters: objectSchema({ container_id: { type: "string", minLength: 1 }, since: { type: "string", format: "date-time" }, until: { type: "string", format: "date-time" }, limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS } }, ["since", "until"]),
+    name: "docker_events",
+    description: "Get historical events from the Docker server",
+    parameters: objectSchema(
+      {
+        container_id: { type: "string", minLength: 1 },
+        since: { type: "string", format: "date-time" },
+        until: { type: "string", format: "date-time" },
+        limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS }
+      },
+      ["since", "until"]
+    ),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_id", "since", "until", "limit"]);
       const window = timeWindow(arguments_);
       if (!window.since || !window.until) throw new Error("since and until are required for historical events.");
       validateHistoricalEventWindow(window.since, window.until, scope.now ?? Date.now);
-      return { ...(arguments_.container_id === undefined ? {} : { container_id: identifier(arguments_.container_id, "container_id") }), since: window.since, until: window.until, limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS) };
+      return {
+        ...(arguments_.container_id === undefined ? {} : { container_id: identifier(arguments_.container_id, "container_id") }),
+        since: window.since,
+        until: window.until,
+        limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS)
+      };
     },
     async execute(arguments_, signal) {
       if (scope.context === undefined || scope.cli === undefined) return unavailable();
@@ -180,11 +238,17 @@ function validateHistoricalEventWindow(since: string, until: string, now: () => 
 
 function dockerHistoryTool(scope: DockerScope): ToolRegistration<DockerHistoryArguments> {
   return {
-    name: "docker_history", description: "Show the history of an image",
-    parameters: objectSchema({ image_id: { type: "string", minLength: 1 }, limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS } }, ["image_id"]),
+    name: "docker_history",
+    description: "Show the history of an image",
+    parameters: objectSchema({ image_id: { type: "string", minLength: 1 }, limit: { type: "integer", minimum: 1, maximum: MAX_ROWS, default: MAX_ROWS } }, [
+      "image_id"
+    ]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["image_id", "limit"]);
-      return { image_id: imageReference(arguments_.image_id, "image_id"), limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS) };
+      return {
+        image_id: imageReference(arguments_.image_id, "image_id"),
+        limit: arguments_.limit === undefined ? MAX_ROWS : positiveBoundedInteger(arguments_.limit, "limit", MAX_ROWS)
+      };
     },
     async execute(arguments_, signal) {
       if (scope.context === undefined || scope.cli === undefined) return unavailable();
@@ -201,7 +265,8 @@ function dockerHistoryTool(scope: DockerScope): ToolRegistration<DockerHistoryAr
 
 function dockerDiffTool(scope: DockerScope): ToolRegistration<{ container_id: string }> {
   return {
-    name: "docker_diff", description: "Inspect changes to files or directories on a container's filesystem",
+    name: "docker_diff",
+    description: "Inspect changes to files or directories on a container's filesystem",
     parameters: objectSchema({ container_id: { type: "string", minLength: 1 } }, ["container_id"]),
     parseArguments(input) {
       const arguments_ = objectShape(input, ["container_id"]);
@@ -220,5 +285,9 @@ function dockerDiffTool(scope: DockerScope): ToolRegistration<{ container_id: st
   };
 }
 
-function objectSchema(properties: JsonObject, required: string[] = []): JsonObject { return { type: "object", additionalProperties: false, properties, required }; }
-async function unavailable(): Promise<ToolExecutionResult> { return { status: "error", code: "unavailable", message: "Docker execution is not implemented yet.", retryable: false }; }
+function objectSchema(properties: JsonObject, required: string[] = []): JsonObject {
+  return { type: "object", additionalProperties: false, properties, required };
+}
+async function unavailable(): Promise<ToolExecutionResult> {
+  return { status: "error", code: "unavailable", message: "Docker execution is not implemented yet.", retryable: false };
+}

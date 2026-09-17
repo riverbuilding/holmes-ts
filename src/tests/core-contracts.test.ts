@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DEFAULT_LIMITS,
-  type AssistantMessage,
-  type Evidence,
-  ProviderError,
-  type ToolError,
-  type ToolSuccess,
-  type Truncation
-} from "../core/types.js";
+import { DEFAULT_LIMITS, type AssistantMessage, type Evidence, ProviderError, type ToolError, type ToolSuccess, type Truncation } from "../core/types.js";
 
 test("Phase 1 contracts represent a tool-call history, success evidence, and structured error", () => {
   const assistant: AssistantMessage = {

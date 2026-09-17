@@ -30,14 +30,14 @@ raw process rows, raw diff paths, inspect output, logs, labels, or secrets.
 
 ## Environment facts recorded
 
-| Fact | Observed value |
-| --- | --- |
-| Host OS | Darwin 26.5.2 arm64 |
-| Docker CLI client | 29.6.1 |
-| Docker Compose client | v5.3.0 |
-| Selected context | `desktop-linux` |
-| Docker Engine | 29.6.1 |
-| Docker Desktop | Docker Desktop |
+| Fact                  | Observed value      |
+| --------------------- | ------------------- |
+| Host OS               | Darwin 26.5.2 arm64 |
+| Docker CLI client     | 29.6.1              |
+| Docker Compose client | v5.3.0              |
+| Selected context      | `desktop-linux`     |
+| Docker Engine         | 29.6.1              |
+| Docker Desktop        | Docker Desktop      |
 
 ## Commands and result
 
@@ -45,20 +45,20 @@ All operational commands were executed through the product's
 `DockerCli`/registered tools after resolving the context once. The validation
 harness emitted only status, resource kind, and projected item counts.
 
-| Command or check | Result |
-| --- | --- |
-| `npm run check` | Passed. |
-| `npm test` | Passed. |
-| `docker context show` | Resolved `desktop-linux`. |
-| `docker info --format '{{.ServerVersion}}|{{.OperatingSystem}}'` | Reported `29.6.1|Docker Desktop`. |
-| `docker compose version` | Reported `Docker Compose version v5.3.0`. |
-| `docker compose -f examples/docker/compose.yaml up -d` | Started the three disposable services. |
-| `docker_images` | Returned a projected success with 7 retained image rows and no truncation. |
-| `docker_history` for `alpine:3.21` | Returned a projected success with 2 retained history rows and no truncation. |
-| `docker_top` for running `writable` | Returned a projected success with 2 retained process rows and no truncation. |
-| `docker_diff` for `writable` | Returned a projected success with 3 retained change rows and no truncation. |
-| Absent-resource `docker_diff` check | Returned the safe `not-found` result. |
-| `docker compose -f examples/docker/compose.yaml down --volumes --remove-orphans` | Removed all three disposable containers and their network. |
+| Command or check                                                                 | Result                                                                       |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `npm run check`                                                                  | Passed.                                                                      |
+| `npm test`                                                                       | Passed.                                                                      |
+| `docker context show`                                                            | Resolved `desktop-linux`.                                                    |
+| `docker info --format '{{.ServerVersion}}                                        | {{.OperatingSystem}}'`                                                       | Reported `29.6.1 | Docker Desktop`. |
+| `docker compose version`                                                         | Reported `Docker Compose version v5.3.0`.                                    |
+| `docker compose -f examples/docker/compose.yaml up -d`                           | Started the three disposable services.                                       |
+| `docker_images`                                                                  | Returned a projected success with 7 retained image rows and no truncation.   |
+| `docker_history` for `alpine:3.21`                                               | Returned a projected success with 2 retained history rows and no truncation. |
+| `docker_top` for running `writable`                                              | Returned a projected success with 2 retained process rows and no truncation. |
+| `docker_diff` for `writable`                                                     | Returned a projected success with 3 retained change rows and no truncation.  |
+| Absent-resource `docker_diff` check                                              | Returned the safe `not-found` result.                                        |
+| `docker compose -f examples/docker/compose.yaml down --volumes --remove-orphans` | Removed all three disposable containers and their network.                   |
 
 The record intentionally omits raw Docker output and the identifiers used by
 the harness. The successful writable-layer observation demonstrates only that

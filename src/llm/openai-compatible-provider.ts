@@ -7,11 +7,7 @@ const CHAT_COMPLETIONS_PATH = "v1/chat/completions";
 export class OpenAiCompatibleProvider implements LlmProvider {
   public constructor(private readonly config: ProviderConfig) {}
 
-  public async respond(
-    messages: readonly Message[],
-    tools: readonly ToolDefinition[],
-    signal: AbortSignal
-  ): Promise<AssistantResponse> {
+  public async respond(messages: readonly Message[], tools: readonly ToolDefinition[], signal: AbortSignal): Promise<AssistantResponse> {
     const timeoutMs = this.config.modelTimeoutMs ?? DEFAULT_LIMITS.modelTimeoutMs;
     const timeoutController = new AbortController();
     const timeout = setTimeout(() => timeoutController.abort(), timeoutMs);
@@ -126,7 +122,7 @@ function parseArguments(arguments_: string): unknown {
 }
 
 function object(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 function invalidResponse(message: string): ProviderError {

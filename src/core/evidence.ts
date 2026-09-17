@@ -67,7 +67,10 @@ export function canonicalize(value: JsonValue): string {
   }
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
 
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key]!)}`).join(",")}}`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key]!)}`)
+    .join(",")}}`;
 }
 
 /**
@@ -124,8 +127,9 @@ function canonicalizeSafely(value: JsonValue): string | undefined {
 
 /** Replaces explicitly supplied, non-trivial secrets without mutating the source string. */
 export function redact(content: string, knownSecrets: Iterable<string> = []): RedactionResult {
-  const secrets = [...new Set([...knownSecrets].filter((secret) => secret.length >= MINIMUM_SECRET_LENGTH))]
-    .sort((left, right) => right.length - left.length || (left < right ? -1 : left > right ? 1 : 0));
+  const secrets = [...new Set([...knownSecrets].filter((secret) => secret.length >= MINIMUM_SECRET_LENGTH))].sort(
+    (left, right) => right.length - left.length || (left < right ? -1 : left > right ? 1 : 0)
+  );
   let redactedContent = content;
   for (const secret of secrets) redactedContent = redactedContent.split(secret).join(REDACTION_PLACEHOLDER);
   return { content: redactedContent, redacted: redactedContent !== content };

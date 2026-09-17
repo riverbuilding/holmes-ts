@@ -1,10 +1,5 @@
 import { readFileSync } from "node:fs";
-import type {
-  DockerCommandResult,
-  JsonObject,
-  JsonValue,
-  ToolRegistration
-} from "../core/types.js";
+import type { DockerCommandResult, JsonObject, JsonValue, ToolRegistration } from "../core/types.js";
 import { createDockerTools } from "./docker.js";
 import {
   projectContainerRows,
@@ -17,12 +12,7 @@ import {
   projectProcessRows
 } from "./docker-projection.js";
 
-export type FixtureScenario =
-  | "missing-env"
-  | "unhealthy-container"
-  | "insufficient-evidence"
-  | "image-regression"
-  | "writable-layer-change";
+export type FixtureScenario = "missing-env" | "unhealthy-container" | "insufficient-evidence" | "image-regression" | "writable-layer-change";
 
 interface FixtureObservations {
   readonly collectedAt: string;
@@ -49,25 +39,17 @@ interface FixtureEventsArguments {
   readonly limit: number;
 }
 
-export function createFixtureTools(
-  scenario: FixtureScenario
-): ToolRegistration[] {
+export function createFixtureTools(scenario: FixtureScenario): ToolRegistration[] {
   const observations = loadFixture(scenario);
 
   return createDockerTools({}).map((tool) => {
     if (tool.name === "docker_ps" || tool.name === "docker_ps_all") {
-      const rows = tool.name === "docker_ps_all"
-        ? observations.containers.all
-        : observations.containers.running;
+      const rows = tool.name === "docker_ps_all" ? observations.containers.all : observations.containers.running;
 
       return {
         ...tool,
         async execute(_arguments, _signal) {
-          return projectContainerRows(
-            completedJsonLines(rows),
-            observations.collectedAt,
-            100
-          );
+          return projectContainerRows(completedJsonLines(rows), observations.collectedAt, 100);
         }
       };
     }
@@ -78,9 +60,7 @@ export function createFixtureTools(
         async execute(arguments_, _signal) {
           const resource = fixtureInspectResource(arguments_);
           const document = observations.inspect[resource];
-          const command = document === undefined
-            ? missing(resource)
-            : completed(JSON.stringify([document]));
+          const command = document === undefined ? missing(resource) : completed(JSON.stringify([document]));
 
           return projectInspect(command, observations.collectedAt);
         }
@@ -91,11 +71,7 @@ export function createFixtureTools(
       return {
         ...tool,
         async execute(_arguments, _signal) {
-          return projectImageRows(
-            completedJsonLines(observations.images),
-            observations.collectedAt,
-            100
-          );
+          return projectImageRows(completedJsonLines(observations.images), observations.collectedAt, 100);
         }
       };
     }
@@ -106,11 +82,7 @@ export function createFixtureTools(
         async execute(arguments_, _signal) {
           const containerId = fixtureContainerId(arguments_, "top");
           const output = observations.top[containerId];
-          return projectProcessRows(
-            output === undefined ? missing(containerId) : completed(output),
-            observations.collectedAt,
-            100
-          );
+          return projectProcessRows(output === undefined ? missing(containerId) : completed(output), observations.collectedAt, 100);
         }
       };
     }
@@ -121,15 +93,9 @@ export function createFixtureTools(
         async execute(arguments_, _signal) {
           const fixtureArguments = fixtureLogsArguments(arguments_);
           const lines = observations.logs[fixtureArguments.container_id];
-          const command = lines === undefined
-            ? missing(fixtureArguments.container_id)
-            : completed(lines.join("\n"));
+          const command = lines === undefined ? missing(fixtureArguments.container_id) : completed(lines.join("\n"));
 
-          return projectLogs(
-            command,
-            observations.collectedAt,
-            fixtureArguments.tail
-          );
+          return projectLogs(command, observations.collectedAt, fixtureArguments.tail);
         }
       };
     }
@@ -139,15 +105,12 @@ export function createFixtureTools(
         ...tool,
         async execute(arguments_, _signal) {
           const fixtureArguments = fixtureEventsArguments(arguments_);
-          const rows = fixtureArguments.container_id === undefined
-            ? Object.values(observations.events).flat()
-            : observations.events[fixtureArguments.container_id] ?? [];
+          const rows =
+            fixtureArguments.container_id === undefined
+              ? Object.values(observations.events).flat()
+              : (observations.events[fixtureArguments.container_id] ?? []);
 
-          return projectEvents(
-            completedJsonLines(rows),
-            observations.collectedAt,
-            fixtureArguments.limit
-          );
+          return projectEvents(completedJsonLines(rows), observations.collectedAt, fixtureArguments.limit);
         }
       };
     }
@@ -173,11 +136,7 @@ export function createFixtureTools(
         async execute(arguments_, _signal) {
           const containerId = fixtureContainerId(arguments_, "diff");
           const lines = observations.diff[containerId];
-          return projectDiffRows(
-            lines === undefined ? missing(containerId) : completed(lines.join("\n")),
-            observations.collectedAt,
-            100
-          );
+          return projectDiffRows(lines === undefined ? missing(containerId) : completed(lines.join("\n")), observations.collectedAt, 100);
         }
       };
     }
@@ -187,11 +146,7 @@ export function createFixtureTools(
 }
 
 function fixtureLogsArguments(arguments_: unknown): FixtureLogsArguments {
-  if (
-    isRecord(arguments_)
-    && typeof arguments_.container_id === "string"
-    && typeof arguments_.tail === "number"
-  ) {
+  if (isRecord(arguments_) && typeof arguments_.container_id === "string" && typeof arguments_.tail === "number") {
     return {
       container_id: arguments_.container_id,
       tail: arguments_.tail
@@ -201,21 +156,10 @@ function fixtureLogsArguments(arguments_: unknown): FixtureLogsArguments {
   throw new Error("Invalid fixture logs arguments.");
 }
 
-function fixtureEventsArguments(
-  arguments_: unknown
-): FixtureEventsArguments {
-  if (
-    isRecord(arguments_)
-    && typeof arguments_.limit === "number"
-    && (
-      arguments_.container_id === undefined
-      || typeof arguments_.container_id === "string"
-    )
-  ) {
+function fixtureEventsArguments(arguments_: unknown): FixtureEventsArguments {
+  if (isRecord(arguments_) && typeof arguments_.limit === "number" && (arguments_.container_id === undefined || typeof arguments_.container_id === "string")) {
     return {
-      ...(typeof arguments_.container_id === "string"
-        ? { container_id: arguments_.container_id }
-        : {}),
+      ...(typeof arguments_.container_id === "string" ? { container_id: arguments_.container_id } : {}),
       limit: arguments_.limit
     };
   }
@@ -224,10 +168,7 @@ function fixtureEventsArguments(
 }
 
 function fixtureInspectResource(arguments_: unknown): string {
-  if (
-    isRecord(arguments_)
-    && typeof arguments_.container_or_image_id === "string"
-  ) {
+  if (isRecord(arguments_) && typeof arguments_.container_or_image_id === "string") {
     return arguments_.container_or_image_id;
   }
 
@@ -246,11 +187,7 @@ function fixtureHistoryArguments(arguments_: unknown): {
   readonly image_id: string;
   readonly limit: number;
 } {
-  if (
-    isRecord(arguments_)
-    && typeof arguments_.image_id === "string"
-    && typeof arguments_.limit === "number"
-  ) {
+  if (isRecord(arguments_) && typeof arguments_.image_id === "string" && typeof arguments_.limit === "number") {
     return { image_id: arguments_.image_id, limit: arguments_.limit };
   }
 
@@ -271,22 +208,19 @@ function loadFixture(scenario: FixtureScenario): FixtureObservations {
   return parseFixture(parsed, filename);
 }
 
-function parseFixture(
-  value: unknown,
-  filename: string
-): FixtureObservations {
+function parseFixture(value: unknown, filename: string): FixtureObservations {
   if (
-    !isRecord(value)
-    || value.version !== 2
-    || typeof value.collectedAt !== "string"
-    || !isRecord(value.containers)
-    || !Array.isArray(value.images)
-    || !isRecord(value.inspect)
-    || !isRecord(value.logs)
-    || !isRecord(value.events)
-    || !isRecord(value.top)
-    || !isRecord(value.history)
-    || !isRecord(value.diff)
+    !isRecord(value) ||
+    value.version !== 2 ||
+    typeof value.collectedAt !== "string" ||
+    !isRecord(value.containers) ||
+    !Array.isArray(value.images) ||
+    !isRecord(value.inspect) ||
+    !isRecord(value.logs) ||
+    !isRecord(value.events) ||
+    !isRecord(value.top) ||
+    !isRecord(value.history) ||
+    !isRecord(value.diff)
   ) {
     throw invalidFixture(filename);
   }
@@ -302,16 +236,16 @@ function parseFixture(
   const diff = stringArrayRecord(value.diff);
 
   if (
-    running === undefined
-    || all === undefined
-    || images === undefined
-    || inspect === undefined
-    || logs === undefined
-    || events === undefined
-    || top === undefined
-    || history === undefined
-    || diff === undefined
-    || !Number.isFinite(Date.parse(value.collectedAt))
+    running === undefined ||
+    all === undefined ||
+    images === undefined ||
+    inspect === undefined ||
+    logs === undefined ||
+    events === undefined ||
+    top === undefined ||
+    history === undefined ||
+    diff === undefined ||
+    !Number.isFinite(Date.parse(value.collectedAt))
   ) {
     throw invalidFixture(filename);
   }
@@ -340,9 +274,7 @@ function completed(stdout: string): DockerCommandResult {
   };
 }
 
-function completedJsonLines(
-  rows: readonly JsonObject[]
-): DockerCommandResult {
+function completedJsonLines(rows: readonly JsonObject[]): DockerCommandResult {
   return completed(rows.map((row) => JSON.stringify(row)).join("\n"));
 }
 
@@ -366,11 +298,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function jsonValue(value: unknown): JsonValue | undefined {
-  if (
-    value === null
-    || typeof value === "boolean"
-    || typeof value === "string"
-  ) {
+  if (value === null || typeof value === "boolean" || typeof value === "string") {
     return value;
   }
 
@@ -380,9 +308,7 @@ function jsonValue(value: unknown): JsonValue | undefined {
 
   if (Array.isArray(value)) {
     const entries = value.map(jsonValue);
-    return entries.every((entry): entry is JsonValue => entry !== undefined)
-      ? entries
-      : undefined;
+    return entries.every((entry): entry is JsonValue => entry !== undefined) ? entries : undefined;
   }
 
   if (!isRecord(value)) return undefined;
@@ -398,23 +324,17 @@ function jsonValue(value: unknown): JsonValue | undefined {
 
 function jsonObject(value: unknown): JsonObject | undefined {
   const parsed = jsonValue(value);
-  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
-    ? parsed
-    : undefined;
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
 }
 
 function jsonObjectArray(value: unknown): JsonObject[] | undefined {
   if (!Array.isArray(value)) return undefined;
 
   const values = value.map(jsonObject);
-  return values.every((entry): entry is JsonObject => entry !== undefined)
-    ? values
-    : undefined;
+  return values.every((entry): entry is JsonObject => entry !== undefined) ? values : undefined;
 }
 
-function objectRecord(
-  value: Record<string, unknown>
-): Record<string, JsonObject> | undefined {
+function objectRecord(value: Record<string, unknown>): Record<string, JsonObject> | undefined {
   const result: Record<string, JsonObject> = {};
 
   for (const [key, entry] of Object.entries(value)) {
@@ -426,16 +346,11 @@ function objectRecord(
   return result;
 }
 
-function stringArrayRecord(
-  value: Record<string, unknown>
-): Record<string, readonly string[]> | undefined {
+function stringArrayRecord(value: Record<string, unknown>): Record<string, readonly string[]> | undefined {
   const result: Record<string, readonly string[]> = {};
 
   for (const [key, entry] of Object.entries(value)) {
-    if (
-      !Array.isArray(entry)
-      || !entry.every((line): line is string => typeof line === "string")
-    ) {
+    if (!Array.isArray(entry) || !entry.every((line): line is string => typeof line === "string")) {
       return undefined;
     }
     result[key] = entry;
@@ -444,9 +359,7 @@ function stringArrayRecord(
   return result;
 }
 
-function stringRecord(
-  value: Record<string, unknown>
-): Record<string, string> | undefined {
+function stringRecord(value: Record<string, unknown>): Record<string, string> | undefined {
   const result: Record<string, string> = {};
 
   for (const [key, entry] of Object.entries(value)) {
@@ -457,9 +370,7 @@ function stringRecord(
   return result;
 }
 
-function objectArrayRecord(
-  value: Record<string, unknown>
-): Record<string, readonly JsonObject[]> | undefined {
+function objectArrayRecord(value: Record<string, unknown>): Record<string, readonly JsonObject[]> | undefined {
   const result: Record<string, readonly JsonObject[]> = {};
 
   for (const [key, entry] of Object.entries(value)) {

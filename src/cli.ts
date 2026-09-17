@@ -18,7 +18,15 @@ export interface AskArguments {
 
 export type VerboseProgressEvent =
   | { readonly kind: "context-resolved"; readonly context: DockerContext }
-  | { readonly kind: "tool-complete"; readonly toolName: string; readonly resourceKind: string; readonly durationMs: number; readonly completion: string; readonly truncated: boolean; readonly evidenceId?: string };
+  | {
+      readonly kind: "tool-complete";
+      readonly toolName: string;
+      readonly resourceKind: string;
+      readonly durationMs: number;
+      readonly completion: string;
+      readonly truncated: boolean;
+      readonly evidenceId?: string;
+    };
 
 /** Formats only reviewed metadata; raw Docker output is never accepted here. */
 export function formatVerboseProgress(event: VerboseProgressEvent): string {
@@ -62,11 +70,13 @@ export function parseAskArguments(arguments_: string[]): AskArguments {
 }
 
 function isFixtureScenario(value: string): value is FixtureScenario {
-  return value === "missing-env"
-    || value === "unhealthy-container"
-    || value === "insufficient-evidence"
-    || value === "image-regression"
-    || value === "writable-layer-change";
+  return (
+    value === "missing-env" ||
+    value === "unhealthy-container" ||
+    value === "insufficient-evidence" ||
+    value === "image-regression" ||
+    value === "writable-layer-change"
+  );
 }
 
 export interface CliStartupDependencies {
@@ -91,11 +101,7 @@ export async function createAskRegistry(
   let tools: ReturnType<typeof createDockerTools>;
   if (arguments_.fixture === undefined) {
     const dockerCli = dependencies.dockerCli ?? new DockerCli();
-    const context = await dockerCli.resolveContext(
-      arguments_.dockerContext,
-      new AbortController().signal,
-      config.docker.commandTimeoutMs
-    );
+    const context = await dockerCli.resolveContext(arguments_.dockerContext, new AbortController().signal, config.docker.commandTimeoutMs);
     tools = dockerFactory({ context, cli: dockerCli, commandTimeoutMs: config.docker.commandTimeoutMs });
     if (arguments_.verbose) dependencies.reportProgress?.({ kind: "context-resolved", context });
   } else {

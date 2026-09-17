@@ -4,16 +4,20 @@ import { renderResult } from "../output/render.js";
 import type { InvestigationResult, InvestigationStopReason } from "../core/types.js";
 
 test("renders a complete canonical answer with retained evidence and truncation provenance", () => {
-  const rendered = renderResult(result({
-    answer: canonicalAnswer(),
-    evidence: [
-      evidence("E1", "docker_logs", "container/checkout-api"),
-      evidence("E2", "docker_inspect", "container/checkout-api", "row-limit", "evidence-budget")
-    ],
-    citationValidation: citationValidation({ validEvidenceIds: ["E1", "E2"], citedEvidenceIds: ["E1", "E2"], hasCitations: true })
-  }));
+  const rendered = renderResult(
+    result({
+      answer: canonicalAnswer(),
+      evidence: [
+        evidence("E1", "docker_logs", "container/checkout-api"),
+        evidence("E2", "docker_inspect", "container/checkout-api", "row-limit", "evidence-budget")
+      ],
+      citationValidation: citationValidation({ validEvidenceIds: ["E1", "E2"], citedEvidenceIds: ["E1", "E2"], hasCitations: true })
+    })
+  );
 
-  assert.equal(rendered, `Status: complete
+  assert.equal(
+    rendered,
+    `Status: complete
 
 Finding
 checkout-api needs DATABASE_URL. [E1]
@@ -33,7 +37,8 @@ Next steps
 Set the missing configuration and restart the container.
 
 Uncertainty
-The fixture does not establish why the setting was omitted.`);
+The fixture does not establish why the setting was omitted.`
+  );
 });
 
 test("renders every partial reason with a fixed safe status", () => {
@@ -47,7 +52,9 @@ test("renders every partial reason with a fixed safe status", () => {
   };
 
   for (const [reason, label] of Object.entries(expected) as [InvestigationStopReason, string][]) {
-    assert.equal(renderResult(result({ complete: false, reason, answer: "No final synthesis." })), `Status: partial — ${label}
+    assert.equal(
+      renderResult(result({ complete: false, reason, answer: "No final synthesis." })),
+      `Status: partial — ${label}
 
 Finding
 No final synthesis.
@@ -62,12 +69,15 @@ Next steps
 Not supplied by the model.
 
 Uncertainty
-Not supplied by the model.`);
+Not supplied by the model.`
+    );
   }
 });
 
 test("renders zero evidence without adding a citation warning", () => {
-  assert.equal(renderResult(result({ answer: canonicalAnswerWithoutCitations(), evidence: [] })), `Status: complete
+  assert.equal(
+    renderResult(result({ answer: canonicalAnswerWithoutCitations(), evidence: [] })),
+    `Status: complete
 
 Finding
 checkout-api needs DATABASE_URL.
@@ -82,22 +92,27 @@ Next steps
 Set the missing configuration and restart the container.
 
 Uncertainty
-The fixture does not establish why the setting was omitted.`);
+The fixture does not establish why the setting was omitted.`
+  );
 });
 
 test("renders every citation warning category in stable order", () => {
-  assert.equal(renderResult(result({
-    answer: "An unsupported answer.",
-    evidence: [evidence("E1", "docker_logs", "container/checkout-api")],
-    citationValidation: citationValidation({
-      hasCitations: true,
-      citedEvidenceIds: ["E1", "E9", "E1"],
-      validEvidenceIds: ["E1"],
-      invalidEvidenceIds: ["E9"],
-      duplicateEvidenceIds: ["E1"],
-      malformedCitationTokens: ["E0"]
-    })
-  })), `Status: complete
+  assert.equal(
+    renderResult(
+      result({
+        answer: "An unsupported answer.",
+        evidence: [evidence("E1", "docker_logs", "container/checkout-api")],
+        citationValidation: citationValidation({
+          hasCitations: true,
+          citedEvidenceIds: ["E1", "E9", "E1"],
+          validEvidenceIds: ["E1"],
+          invalidEvidenceIds: ["E9"],
+          duplicateEvidenceIds: ["E1"],
+          malformedCitationTokens: ["E0"]
+        })
+      })
+    ),
+    `Status: complete
 
 Finding
 An unsupported answer.
@@ -120,12 +135,18 @@ Not supplied by the model.
 Citation warnings
 - Unknown evidence IDs: E9
 - Duplicate evidence IDs: E1
-- Malformed citation tokens: E0`);
+- Malformed citation tokens: E0`
+  );
 
-  assert.match(renderResult(result({
-    answer: "An uncited answer.",
-    evidence: [evidence("E1", "docker_logs", "container/checkout-api")]
-  })), /Citation warnings\n- No evidence citations were supplied despite retained evidence\.$/);
+  assert.match(
+    renderResult(
+      result({
+        answer: "An uncited answer.",
+        evidence: [evidence("E1", "docker_logs", "container/checkout-api")]
+      })
+    ),
+    /Citation warnings\n- No evidence citations were supplied despite retained evidence\.$/
+  );
 });
 
 test("falls back to the finding section without dropping malformed answer text", () => {
@@ -136,7 +157,9 @@ test("falls back to the finding section without dropping malformed answer text",
     "Summary\nAn unrecognized heading.\nFinding\nFinding.\nEvidence\nEvidence.\nNext steps\nNext.\nUncertainty\nUnknown.",
     "Finding\nFinding.\nEvidence\nEvidence.\nSummary\nAn unrecognized heading.\nNext steps\nNext.\nUncertainty\nUnknown."
   ]) {
-    assert.equal(renderResult(result({ answer })), `Status: complete
+    assert.equal(
+      renderResult(result({ answer })),
+      `Status: complete
 
 Finding
 ${answer}
@@ -151,7 +174,8 @@ Next steps
 Not supplied by the model.
 
 Uncertainty
-Not supplied by the model.`);
+Not supplied by the model.`
+    );
   }
 });
 
@@ -165,7 +189,13 @@ function result(overrides: Partial<InvestigationResult> = {}): InvestigationResu
   };
 }
 
-function evidence(id: string, toolName: string, resource: string, sourceReason?: "row-limit", evidenceReason?: "evidence-budget"): InvestigationResult["evidence"][number] {
+function evidence(
+  id: string,
+  toolName: string,
+  resource: string,
+  sourceReason?: "row-limit",
+  evidenceReason?: "evidence-budget"
+): InvestigationResult["evidence"][number] {
   return {
     id,
     toolName,

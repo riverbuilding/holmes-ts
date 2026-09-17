@@ -16,16 +16,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
   if (!apiKey) throw new Error("LLM_API_KEY must be set.");
   const model = environment.LLM_MODEL ?? DEFAULT_LLM_MODEL;
   const baseUrl = environment.LLM_BASE_URL ?? DEFAULT_LLM_BASE_URL;
-  const modelTimeoutMs = readPositiveInteger(
-    environment.LLM_MODEL_TIMEOUT_MS,
-    "LLM_MODEL_TIMEOUT_MS",
-    DEFAULT_LIMITS.modelTimeoutMs
-  );
-  const commandTimeoutMs = readPositiveInteger(
-    environment.DOCKER_SUBPROCESS_TIMEOUT_MS,
-    "DOCKER_SUBPROCESS_TIMEOUT_MS",
-    DEFAULT_LIMITS.subprocessTimeoutMs
-  );
+  const modelTimeoutMs = readPositiveInteger(environment.LLM_MODEL_TIMEOUT_MS, "LLM_MODEL_TIMEOUT_MS", DEFAULT_LIMITS.modelTimeoutMs);
+  const commandTimeoutMs = readPositiveInteger(environment.DOCKER_SUBPROCESS_TIMEOUT_MS, "DOCKER_SUBPROCESS_TIMEOUT_MS", DEFAULT_LIMITS.subprocessTimeoutMs);
   return { provider: { apiKey, model, baseUrl, modelTimeoutMs }, docker: { commandTimeoutMs } };
 }
 

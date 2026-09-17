@@ -7,75 +7,110 @@ import { createFixtureTools, type FixtureScenario } from "../tools/fixtures.js";
 import { ToolRegistry } from "../tools/registry.js";
 
 test("missing-env fixture walks discovery, inspect, logs, and events through the registry", async () => {
-  const result = await run("missing-env", [
-    call("docker_ps_all", {}),
-    call("docker_inspect", { container_or_image_id: "checkout-api" }),
-    call("docker_logs", { container_id: "checkout-api", tail: 10 }),
-    call("docker_events", eventArguments("checkout-api"))
-  ], "checkout-api exited and its logs report that DATABASE_URL is required [E1] [E2] [E3] [E4].");
+  const result = await run(
+    "missing-env",
+    [
+      call("docker_ps_all", {}),
+      call("docker_inspect", { container_or_image_id: "checkout-api" }),
+      call("docker_logs", { container_id: "checkout-api", tail: 10 }),
+      call("docker_events", eventArguments("checkout-api"))
+    ],
+    "checkout-api exited and its logs report that DATABASE_URL is required [E1] [E2] [E3] [E4]."
+  );
 
   assert.equal(result.result.complete, true);
   assert.deepEqual(result.calls, ["docker_ps_all", "docker_inspect", "docker_logs", "docker_events"]);
-  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.deepEqual(
+    result.result.evidence.map((evidence) => evidence.toolName),
+    result.calls
+  );
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
   assert.match(result.result.answer, /DATABASE_URL is required/);
 });
 
 test("unhealthy-container fixture walks running discovery, inspect, events, and logs through the registry", async () => {
-  const result = await run("unhealthy-container", [
-    call("docker_ps", {}),
-    call("docker_inspect", { container_or_image_id: "checkout-api" }),
-    call("docker_events", eventArguments("checkout-api")),
-    call("docker_logs", { container_id: "checkout-api", tail: 10 })
-  ], "checkout-api is unhealthy; its health event and log show a failed dependency response [E1] [E2] [E3] [E4].");
+  const result = await run(
+    "unhealthy-container",
+    [
+      call("docker_ps", {}),
+      call("docker_inspect", { container_or_image_id: "checkout-api" }),
+      call("docker_events", eventArguments("checkout-api")),
+      call("docker_logs", { container_id: "checkout-api", tail: 10 })
+    ],
+    "checkout-api is unhealthy; its health event and log show a failed dependency response [E1] [E2] [E3] [E4]."
+  );
 
   assert.equal(result.result.complete, true);
   assert.deepEqual(result.calls, ["docker_ps", "docker_inspect", "docker_events", "docker_logs"]);
-  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.deepEqual(
+    result.result.evidence.map((evidence) => evidence.toolName),
+    result.calls
+  );
   assert.match(result.result.evidence[1]?.content ?? "", /unhealthy/);
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
 });
 
 test("insufficient-evidence fixture retains observations and does not turn missing logs into a root cause", async () => {
-  const result = await run("insufficient-evidence", [
-    call("docker_ps", {}),
-    call("docker_inspect", { container_or_image_id: "checkout-api" }),
-    call("docker_events", eventArguments("checkout-api")),
-    call("docker_logs", { container_id: "missing", tail: 10 })
-  ], "The container is running, but the empty event observation and missing logs do not establish a root cause [E1] [E2] [E3].");
+  const result = await run(
+    "insufficient-evidence",
+    [
+      call("docker_ps", {}),
+      call("docker_inspect", { container_or_image_id: "checkout-api" }),
+      call("docker_events", eventArguments("checkout-api")),
+      call("docker_logs", { container_id: "missing", tail: 10 })
+    ],
+    "The container is running, but the empty event observation and missing logs do not establish a root cause [E1] [E2] [E3]."
+  );
 
   assert.equal(result.result.complete, true);
   assert.deepEqual(result.calls, ["docker_ps", "docker_inspect", "docker_events", "docker_logs"]);
-  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), ["docker_ps", "docker_inspect", "docker_events"]);
+  assert.deepEqual(
+    result.result.evidence.map((evidence) => evidence.toolName),
+    ["docker_ps", "docker_inspect", "docker_events"]
+  );
   assert.doesNotMatch(result.result.answer, /because|caused by/i);
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
 });
 
 test("image-regression fixture walks image discovery, inspect, and bounded history", async () => {
-  const result = await run("image-regression", [
-    call("docker_images", {}),
-    call("docker_inspect", { container_or_image_id: "checkout:1.5" }),
-    call("docker_history", { image_id: "checkout:1.5", limit: 1 })
-  ], "The image inventory and inspect observation identify checkout:1.5, and the retained history reports one recent layer observation [E1] [E2] [E3].");
+  const result = await run(
+    "image-regression",
+    [
+      call("docker_images", {}),
+      call("docker_inspect", { container_or_image_id: "checkout:1.5" }),
+      call("docker_history", { image_id: "checkout:1.5", limit: 1 })
+    ],
+    "The image inventory and inspect observation identify checkout:1.5, and the retained history reports one recent layer observation [E1] [E2] [E3]."
+  );
 
   assert.equal(result.result.complete, true);
   assert.deepEqual(result.calls, ["docker_images", "docker_inspect", "docker_history"]);
-  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.deepEqual(
+    result.result.evidence.map((evidence) => evidence.toolName),
+    result.calls
+  );
   assert.doesNotMatch(result.result.answer, /caused by|regression is proven/i);
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
 });
 
 test("writable-layer fixture distinguishes observed paths from a causal explanation", async () => {
-  const result = await run("writable-layer-change", [
-    call("docker_ps", {}),
-    call("docker_inspect", { container_or_image_id: "checkout-api" }),
-    call("docker_diff", { container_id: "checkout-api" }),
-    call("docker_top", { container_id: "checkout-api" })
-  ], "checkout-api is running and its writable layer contains two observed paths, but these observations do not establish what caused the change [E1] [E2] [E3] [E4].");
+  const result = await run(
+    "writable-layer-change",
+    [
+      call("docker_ps", {}),
+      call("docker_inspect", { container_or_image_id: "checkout-api" }),
+      call("docker_diff", { container_id: "checkout-api" }),
+      call("docker_top", { container_id: "checkout-api" })
+    ],
+    "checkout-api is running and its writable layer contains two observed paths, but these observations do not establish what caused the change [E1] [E2] [E3] [E4]."
+  );
 
   assert.equal(result.result.complete, true);
   assert.deepEqual(result.calls, ["docker_ps", "docker_inspect", "docker_diff", "docker_top"]);
-  assert.deepEqual(result.result.evidence.map((evidence) => evidence.toolName), result.calls);
+  assert.deepEqual(
+    result.result.evidence.map((evidence) => evidence.toolName),
+    result.calls
+  );
   assert.doesNotMatch(result.result.answer, /because|caused by/i);
   assert.deepEqual(result.result.citationValidation.invalidEvidenceIds, []);
 });
@@ -88,7 +123,11 @@ function eventArguments(container_id: string): object {
   return { container_id, since: "2026-09-14T00:00:00Z", until: "2026-09-15T00:00:00Z", limit: 10 };
 }
 
-async function run(scenario: FixtureScenario, calls: readonly AssistantResponse[], answer: string): Promise<{ result: Awaited<ReturnType<typeof investigate>>; calls: string[] }> {
+async function run(
+  scenario: FixtureScenario,
+  calls: readonly AssistantResponse[],
+  answer: string
+): Promise<{ result: Awaited<ReturnType<typeof investigate>>; calls: string[] }> {
   const provider = new ScriptedProvider([...calls, { content: answer, toolCalls: [] }]);
   const registry = new ToolRegistry();
   for (const tool of createFixtureTools(scenario)) registry.register(tool);
@@ -96,7 +135,18 @@ async function run(scenario: FixtureScenario, calls: readonly AssistantResponse[
     provider,
     registry,
     systemPrompt: "Investigate with the available Docker tools.",
-    limits: { maxModelCalls: calls.length + 1, maxToolCalls: calls.length, deadlineMs: 1_000, modelTimeoutMs: 100, subprocessTimeoutMs: 100, maxConcurrentToolCalls: 1, maxLogLines: 100, maxRowsPerResult: 100, maxCharsPerResult: 1_000, maxEvidenceChars: 4_000 }
+    limits: {
+      maxModelCalls: calls.length + 1,
+      maxToolCalls: calls.length,
+      deadlineMs: 1_000,
+      modelTimeoutMs: 100,
+      subprocessTimeoutMs: 100,
+      maxConcurrentToolCalls: 1,
+      maxLogLines: 100,
+      maxRowsPerResult: 100,
+      maxCharsPerResult: 1_000,
+      maxEvidenceChars: 4_000
+    }
   });
   return { result, calls: provider.selected };
 }

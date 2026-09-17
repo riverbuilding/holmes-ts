@@ -6,7 +6,9 @@ const MAX_PROCESS_FIELDS = 32;
 
 export class DockerProjectionError extends Error {
   public readonly name = "DockerProjectionError";
-  public constructor() { super("Docker returned malformed output."); }
+  public constructor() {
+    super("Docker returned malformed output.");
+  }
 }
 
 export function mapDockerCommandFailure(result: DockerCommandResult): ToolError | undefined {
@@ -25,7 +27,11 @@ export function parseJsonLines(output: string): JsonObject[] {
   for (const line of output.split(/\r?\n/)) {
     if (line.trim() === "") continue;
     let parsed: unknown;
-    try { parsed = JSON.parse(line); } catch { throw new DockerProjectionError(); }
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      throw new DockerProjectionError();
+    }
     if (!isObject(parsed)) throw new DockerProjectionError();
     rows.push(parsed);
   }
@@ -49,7 +55,11 @@ export function parseTable(output: string, headers: readonly string[]): JsonObje
 
 export function parseSingleJsonObject(output: string): JsonObject {
   let parsed: unknown;
-  try { parsed = JSON.parse(output); } catch { throw new DockerProjectionError(); }
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    throw new DockerProjectionError();
+  }
   if (!Array.isArray(parsed) || parsed.length !== 1 || !isObject(parsed[0])) throw new DockerProjectionError();
   return parsed[0];
 }
@@ -299,7 +309,13 @@ export function parseProcessTable(output: string): { headers: string[]; rows: Js
   if (lines.length === 0) throw new DockerProjectionError();
   if (lines.some((line) => line === "" || CONTROL_CHARACTER.test(line))) throw new DockerProjectionError();
   const headers = splitTableLine(lines[0]);
-  if (headers.length === 0 || headers.length > MAX_PROCESS_FIELDS || headers.some((header) => header === "" || CONTROL_CHARACTER.test(header)) || new Set(headers).size !== headers.length) throw new DockerProjectionError();
+  if (
+    headers.length === 0 ||
+    headers.length > MAX_PROCESS_FIELDS ||
+    headers.some((header) => header === "" || CONTROL_CHARACTER.test(header)) ||
+    new Set(headers).size !== headers.length
+  )
+    throw new DockerProjectionError();
   const rows = lines.slice(1).map((line) => {
     const fields = splitTableLine(line);
     if (fields.length !== headers.length || fields.some((field) => field === "" || CONTROL_CHARACTER.test(field))) throw new DockerProjectionError();
@@ -321,7 +337,12 @@ export function parseDiffLines(output: string): JsonObject[] {
 }
 
 function success(resource: string, attributes: JsonObject, collectedAt: string, truncation?: Truncation): ToolSuccess {
-  return { status: "success", content: JSON.stringify(attributes), metadata: { resource, collectedAt, attributes }, ...(truncation === undefined ? {} : { truncation }) };
+  return {
+    status: "success",
+    content: JSON.stringify(attributes),
+    metadata: { resource, collectedAt, attributes },
+    ...(truncation === undefined ? {} : { truncation })
+  };
 }
 
 function limitRows<T>(values: readonly T[], maximum: number): { values: T[]; truncation?: Truncation } {
@@ -344,13 +365,38 @@ function captureTruncation(result: DockerCommandResult): Truncation | undefined 
   return result.outputTruncated ? { truncated: true, reason: "character-limit" } : undefined;
 }
 
-function error(code: ToolError["code"], message: string, retryable: boolean): ToolError { return { status: "error", code, message, retryable }; }
-function isObject(value: unknown): value is JsonObject { return typeof value === "object" && value !== null && !Array.isArray(value); }
-function objectAt(value: JsonObject | undefined, key: string): JsonObject | undefined { const item = value?.[key]; return isObject(item) ? item : undefined; }
-function stringAt(value: JsonObject | undefined, ...keys: string[]): string | undefined { for (const key of keys) { const item = value?.[key]; if (typeof item === "string") return item; } return undefined; }
-function numberAt(value: JsonObject | undefined, ...keys: string[]): number | undefined { for (const key of keys) { const item = value?.[key]; if (typeof item === "number" && Number.isFinite(item)) return item; } return undefined; }
-function booleanAt(value: JsonObject | undefined, key: string): boolean | undefined { const item = value?.[key]; return typeof item === "boolean" ? item : undefined; }
-function stringsAt(value: JsonObject | undefined, key: string): string[] | undefined { const item = value?.[key]; return Array.isArray(item) && item.every((entry) => typeof entry === "string") ? [...item] : undefined; }
+function error(code: ToolError["code"], message: string, retryable: boolean): ToolError {
+  return { status: "error", code, message, retryable };
+}
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function objectAt(value: JsonObject | undefined, key: string): JsonObject | undefined {
+  const item = value?.[key];
+  return isObject(item) ? item : undefined;
+}
+function stringAt(value: JsonObject | undefined, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const item = value?.[key];
+    if (typeof item === "string") return item;
+  }
+  return undefined;
+}
+function numberAt(value: JsonObject | undefined, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const item = value?.[key];
+    if (typeof item === "number" && Number.isFinite(item)) return item;
+  }
+  return undefined;
+}
+function booleanAt(value: JsonObject | undefined, key: string): boolean | undefined {
+  const item = value?.[key];
+  return typeof item === "boolean" ? item : undefined;
+}
+function stringsAt(value: JsonObject | undefined, key: string): string[] | undefined {
+  const item = value?.[key];
+  return Array.isArray(item) && item.every((entry) => typeof entry === "string") ? [...item] : undefined;
+}
 function compact(value: Record<string, JsonValue | undefined>): JsonObject {
   const result: JsonObject = {};
   for (const [key, item] of Object.entries(value)) if (item !== undefined) result[key] = item;
@@ -362,24 +408,49 @@ function requiredString(row: JsonObject, key: string, allowEmpty = false): strin
   return value;
 }
 function historyCommandKind(createdBy: string): string {
-  const command = createdBy.replace(/^\/bin\/sh -c\s+(?:#\(nop\)\s+)?/i, "").trim().toLowerCase();
+  const command = createdBy
+    .replace(/^\/bin\/sh -c\s+(?:#\(nop\)\s+)?/i, "")
+    .trim()
+    .toLowerCase();
   if (command.startsWith("run ")) return "run";
   if (command.startsWith("copy ") || command.startsWith("add ")) return "copy";
   if (command.startsWith("entrypoint ")) return "entrypoint";
   if (command.startsWith("cmd ")) return "cmd";
   return "other";
 }
-function compareStrings(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
-function compareContainerRows(left: JsonObject, right: JsonObject): number { return String(left.name ?? left.id ?? "").localeCompare(String(right.name ?? right.id ?? "")); }
-function compareEvents(left: JsonObject, right: JsonObject): number { return `${left.timeNano ?? ""}:${left.resourceId ?? ""}`.localeCompare(`${right.timeNano ?? ""}:${right.resourceId ?? ""}`); }
-function compareImageRows(left: JsonObject, right: JsonObject): number {
-  return compareStrings(String(left.repository ?? ""), String(right.repository ?? ""))
-    || compareStrings(String(left.tag ?? ""), String(right.tag ?? ""))
-    || compareStrings(String(left.id), String(right.id));
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
-function compareProcessRows(left: JsonObject, right: JsonObject): number { return compareStrings(JSON.stringify(left.fields), JSON.stringify(right.fields)); }
-function compareDiffRows(left: JsonObject, right: JsonObject): number { return compareStrings(String(left.path), String(right.path)) || compareStrings(String(left.action), String(right.action)); }
-function notFound(stderr: string): boolean { return /no such (container|object|image)|not found/i.test(stderr); }
-function stoppedContainer(stderr: string): boolean { return /container .+ is not running|container is not running/i.test(stderr); }
-function unavailable(stderr: string): boolean { return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|connection refused|error during connect/i.test(stderr); }
-function splitTableLine(line: string): string[] { return line.trim().split(/(?:\t+| {2,})/); }
+function compareContainerRows(left: JsonObject, right: JsonObject): number {
+  return String(left.name ?? left.id ?? "").localeCompare(String(right.name ?? right.id ?? ""));
+}
+function compareEvents(left: JsonObject, right: JsonObject): number {
+  return `${left.timeNano ?? ""}:${left.resourceId ?? ""}`.localeCompare(`${right.timeNano ?? ""}:${right.resourceId ?? ""}`);
+}
+function compareImageRows(left: JsonObject, right: JsonObject): number {
+  return (
+    compareStrings(String(left.repository ?? ""), String(right.repository ?? "")) ||
+    compareStrings(String(left.tag ?? ""), String(right.tag ?? "")) ||
+    compareStrings(String(left.id), String(right.id))
+  );
+}
+function compareProcessRows(left: JsonObject, right: JsonObject): number {
+  return compareStrings(JSON.stringify(left.fields), JSON.stringify(right.fields));
+}
+function compareDiffRows(left: JsonObject, right: JsonObject): number {
+  return compareStrings(String(left.path), String(right.path)) || compareStrings(String(left.action), String(right.action));
+}
+function notFound(stderr: string): boolean {
+  return /no such (container|object|image)|not found/i.test(stderr);
+}
+function stoppedContainer(stderr: string): boolean {
+  return /container .+ is not running|container is not running/i.test(stderr);
+}
+function unavailable(stderr: string): boolean {
+  return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|connection refused|error during connect/i.test(
+    stderr
+  );
+}
+function splitTableLine(line: string): string[] {
+  return line.trim().split(/(?:\t+| {2,})/);
+}
