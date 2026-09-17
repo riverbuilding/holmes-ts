@@ -12,7 +12,7 @@ export interface EvaluationArguments {
 }
 
 export function parseEvaluationArguments(arguments_: readonly string[]): EvaluationArguments {
-  let runs = 5;
+  let runs = 1;
   let report: string | undefined;
   let verbose = false;
   for (let index = 0; index < arguments_.length; index += 1) {

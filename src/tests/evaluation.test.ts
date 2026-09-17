@@ -61,6 +61,7 @@ test("evaluation gates reject invalid citations, incomplete results, missing req
 });
 
 test("evaluation command validates runs and report destinations before provider setup", () => {
+  assert.equal(parseEvaluationArguments(["--report", "docs/evaluations/report.json"]).runs, 1);
   assert.throws(() => parseEvaluationArguments(["--runs", "0", "--report", "docs/evaluations/report.json"]), /positive integer/);
   assert.throws(() => parseEvaluationArguments(["--runs", "1", "--report", "outside.json"]), /inside docs\/evaluations/);
   assert.match(validateReportDestination("docs/evaluations/report.json"), /docs\/evaluations\/report\.json$/);
