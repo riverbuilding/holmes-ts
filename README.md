@@ -85,6 +85,7 @@ if the default route does not support tool calls.
 - [Phase 3 live-Docker validation record](docs/phase-3-live-docker-validation.md)
 - [Phase 4 image and runtime implementation slices](docs/phase-4-implementation-slices.md)
 - [Phase 4 live-Docker validation record](docs/phase-4-live-docker-validation.md)
+- [Phase 5 answer-quality and release-readiness implementation slices](docs/phase-5-implementation-slices.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)
