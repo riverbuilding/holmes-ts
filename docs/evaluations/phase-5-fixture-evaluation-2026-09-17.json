@@ -1,0 +1,869 @@
+{
+  "schemaVersion": 1,
+  "model": "openai/gpt-oss-120b",
+  "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+  "requestedRuns": 5,
+  "scenarios": [
+    {
+      "id": "missing-env",
+      "question": "Why did checkout exit? State the supported cause, safe next steps, and uncertainty.",
+      "requiredTools": [
+        "docker_ps_all",
+        "docker_inspect",
+        "docker_logs"
+      ],
+      "conclusionCriterion": "Identify missing configuration only where state and logs support it."
+    },
+    {
+      "id": "unhealthy-container",
+      "question": "Why is checkout-api unhealthy? Separate the health symptom from the supported cause.",
+      "requiredTools": [
+        "docker_ps",
+        "docker_inspect",
+        "docker_events",
+        "docker_logs"
+      ],
+      "conclusionCriterion": "State the observed health state and only available dependency-failure evidence."
+    },
+    {
+      "id": "insufficient-evidence",
+      "question": "Can the root cause of checkout-api be established? State what is known and what is missing.",
+      "requiredTools": [
+        "docker_ps",
+        "docker_inspect",
+        "docker_events",
+        "docker_logs"
+      ],
+      "conclusionCriterion": "Do not manufacture a root cause; state missing evidence and a safe next observation."
+    },
+    {
+      "id": "image-regression",
+      "question": "What evidence is available for a checkout image regression, and what should be checked next?",
+      "requiredTools": [
+        "docker_images",
+        "docker_inspect",
+        "docker_history"
+      ],
+      "conclusionCriterion": "Identify image and layer observations without claiming an unproven regression cause."
+    },
+    {
+      "id": "writable-layer-change",
+      "question": "What changed in checkout-api’s writable layer, and what can or cannot be concluded?",
+      "requiredTools": [
+        "docker_ps",
+        "docker_inspect",
+        "docker_diff"
+      ],
+      "conclusionCriterion": "Distinguish observed paths from causal explanation and state a safe next check."
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "missing-env",
+      "run": 1,
+      "startedAt": "2026-09-17T20:29:12.487Z",
+      "endedAt": "2026-09-17T20:29:17.085Z",
+      "elapsedMs": 4598,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "caa4b40dc8a6d0be14a4ed577b4c5e002a1de93c77140c9493477726fc974bc5",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [
+        "docker_ps_all",
+        "docker_logs",
+        "docker_inspect",
+        "docker_events",
+        "docker_events",
+        "docker_inspect"
+      ],
+      "toolCount": 6,
+      "retainedEvidence": [
+        {
+          "id": "E1",
+          "toolName": "docker_ps_all"
+        },
+        {
+          "id": "E2",
+          "toolName": "docker_logs"
+        },
+        {
+          "id": "E3",
+          "toolName": "docker_inspect"
+        },
+        {
+          "id": "E4",
+          "toolName": "docker_events"
+        },
+        {
+          "id": "E5",
+          "toolName": "docker_inspect"
+        }
+      ],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": {
+        "inputTokens": 7271,
+        "outputTokens": 492,
+        "totalTokens": 7763
+      },
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "missing-env",
+      "run": 2,
+      "startedAt": "2026-09-17T20:29:17.087Z",
+      "endedAt": "2026-09-17T20:29:17.867Z",
+      "elapsedMs": 780,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "caa4b40dc8a6d0be14a4ed577b4c5e002a1de93c77140c9493477726fc974bc5",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "missing-env",
+      "run": 3,
+      "startedAt": "2026-09-17T20:29:17.867Z",
+      "endedAt": "2026-09-17T20:29:18.028Z",
+      "elapsedMs": 161,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "caa4b40dc8a6d0be14a4ed577b4c5e002a1de93c77140c9493477726fc974bc5",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "missing-env",
+      "run": 4,
+      "startedAt": "2026-09-17T20:29:18.029Z",
+      "endedAt": "2026-09-17T20:29:18.177Z",
+      "elapsedMs": 148,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "caa4b40dc8a6d0be14a4ed577b4c5e002a1de93c77140c9493477726fc974bc5",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "missing-env",
+      "run": 5,
+      "startedAt": "2026-09-17T20:29:18.177Z",
+      "endedAt": "2026-09-17T20:29:18.323Z",
+      "elapsedMs": 146,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "caa4b40dc8a6d0be14a4ed577b4c5e002a1de93c77140c9493477726fc974bc5",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "unhealthy-container",
+      "run": 1,
+      "startedAt": "2026-09-17T20:29:18.324Z",
+      "endedAt": "2026-09-17T20:29:18.484Z",
+      "elapsedMs": 160,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "04b089da1e33c63c1d2688fdaf7a94f212c15bf0102726e6e970790b86a9f61b",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "unhealthy-container",
+      "run": 2,
+      "startedAt": "2026-09-17T20:29:18.485Z",
+      "endedAt": "2026-09-17T20:29:18.651Z",
+      "elapsedMs": 166,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "04b089da1e33c63c1d2688fdaf7a94f212c15bf0102726e6e970790b86a9f61b",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "unhealthy-container",
+      "run": 3,
+      "startedAt": "2026-09-17T20:29:18.651Z",
+      "endedAt": "2026-09-17T20:29:18.797Z",
+      "elapsedMs": 146,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "04b089da1e33c63c1d2688fdaf7a94f212c15bf0102726e6e970790b86a9f61b",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "unhealthy-container",
+      "run": 4,
+      "startedAt": "2026-09-17T20:29:18.798Z",
+      "endedAt": "2026-09-17T20:29:18.960Z",
+      "elapsedMs": 162,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "04b089da1e33c63c1d2688fdaf7a94f212c15bf0102726e6e970790b86a9f61b",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "unhealthy-container",
+      "run": 5,
+      "startedAt": "2026-09-17T20:29:18.961Z",
+      "endedAt": "2026-09-17T20:29:19.107Z",
+      "elapsedMs": 146,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "04b089da1e33c63c1d2688fdaf7a94f212c15bf0102726e6e970790b86a9f61b",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "insufficient-evidence",
+      "run": 1,
+      "startedAt": "2026-09-17T20:29:19.110Z",
+      "endedAt": "2026-09-17T20:29:19.281Z",
+      "elapsedMs": 171,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "308356de51076469dd670e020ff0eef1505ccff08f2e43e47301628597d66de0",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "insufficient-evidence",
+      "run": 2,
+      "startedAt": "2026-09-17T20:29:19.281Z",
+      "endedAt": "2026-09-17T20:29:19.450Z",
+      "elapsedMs": 169,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "308356de51076469dd670e020ff0eef1505ccff08f2e43e47301628597d66de0",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "insufficient-evidence",
+      "run": 3,
+      "startedAt": "2026-09-17T20:29:19.450Z",
+      "endedAt": "2026-09-17T20:29:19.605Z",
+      "elapsedMs": 155,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "308356de51076469dd670e020ff0eef1505ccff08f2e43e47301628597d66de0",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "insufficient-evidence",
+      "run": 4,
+      "startedAt": "2026-09-17T20:29:19.605Z",
+      "endedAt": "2026-09-17T20:29:19.746Z",
+      "elapsedMs": 141,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "308356de51076469dd670e020ff0eef1505ccff08f2e43e47301628597d66de0",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "insufficient-evidence",
+      "run": 5,
+      "startedAt": "2026-09-17T20:29:19.747Z",
+      "endedAt": "2026-09-17T20:29:19.914Z",
+      "elapsedMs": 167,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "308356de51076469dd670e020ff0eef1505ccff08f2e43e47301628597d66de0",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "image-regression",
+      "run": 1,
+      "startedAt": "2026-09-17T20:29:19.917Z",
+      "endedAt": "2026-09-17T20:29:20.062Z",
+      "elapsedMs": 145,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "edce751249b627ab14d7e92853de6851dd8c41d82d61d78c6b22cc7703d9a082",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "image-regression",
+      "run": 2,
+      "startedAt": "2026-09-17T20:29:20.062Z",
+      "endedAt": "2026-09-17T20:29:20.214Z",
+      "elapsedMs": 152,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "edce751249b627ab14d7e92853de6851dd8c41d82d61d78c6b22cc7703d9a082",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "image-regression",
+      "run": 3,
+      "startedAt": "2026-09-17T20:29:20.214Z",
+      "endedAt": "2026-09-17T20:29:20.362Z",
+      "elapsedMs": 148,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "edce751249b627ab14d7e92853de6851dd8c41d82d61d78c6b22cc7703d9a082",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "image-regression",
+      "run": 4,
+      "startedAt": "2026-09-17T20:29:20.363Z",
+      "endedAt": "2026-09-17T20:29:20.528Z",
+      "elapsedMs": 165,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "edce751249b627ab14d7e92853de6851dd8c41d82d61d78c6b22cc7703d9a082",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "image-regression",
+      "run": 5,
+      "startedAt": "2026-09-17T20:29:20.529Z",
+      "endedAt": "2026-09-17T20:29:20.707Z",
+      "elapsedMs": 178,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "edce751249b627ab14d7e92853de6851dd8c41d82d61d78c6b22cc7703d9a082",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "writable-layer-change",
+      "run": 1,
+      "startedAt": "2026-09-17T20:29:20.710Z",
+      "endedAt": "2026-09-17T20:29:20.874Z",
+      "elapsedMs": 164,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "6a47e54b6ded665f809136e65035abe8c4f324394146fa32f1b4ce9fc4199c86",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "writable-layer-change",
+      "run": 2,
+      "startedAt": "2026-09-17T20:29:20.875Z",
+      "endedAt": "2026-09-17T20:29:21.024Z",
+      "elapsedMs": 149,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "6a47e54b6ded665f809136e65035abe8c4f324394146fa32f1b4ce9fc4199c86",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "writable-layer-change",
+      "run": 3,
+      "startedAt": "2026-09-17T20:29:21.025Z",
+      "endedAt": "2026-09-17T20:29:21.190Z",
+      "elapsedMs": 165,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "6a47e54b6ded665f809136e65035abe8c4f324394146fa32f1b4ce9fc4199c86",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "writable-layer-change",
+      "run": 4,
+      "startedAt": "2026-09-17T20:29:21.191Z",
+      "endedAt": "2026-09-17T20:29:21.336Z",
+      "elapsedMs": 145,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "6a47e54b6ded665f809136e65035abe8c4f324394146fa32f1b4ce9fc4199c86",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    },
+    {
+      "scenario": "writable-layer-change",
+      "run": 5,
+      "startedAt": "2026-09-17T20:29:21.336Z",
+      "endedAt": "2026-09-17T20:29:21.477Z",
+      "elapsedMs": 141,
+      "model": "openai/gpt-oss-120b",
+      "fixtureVersion": 2,
+      "fixtureHash": "6a47e54b6ded665f809136e65035abe8c4f324394146fa32f1b4ce9fc4199c86",
+      "promptHash": "d7d93aad30f760112226ea200d086ee094fd376b05b815b414e09f7dc5288499",
+      "toolNames": [],
+      "toolCount": 0,
+      "retainedEvidence": [],
+      "complete": false,
+      "reason": "provider-error",
+      "citations": {
+        "hasCitations": false,
+        "citedEvidenceIds": [],
+        "validEvidenceIds": [],
+        "invalidEvidenceIds": [],
+        "duplicateEvidenceIds": [],
+        "malformedCitationTokens": []
+      },
+      "usage": "unavailable",
+      "automaticGate": "fail",
+      "review": {
+        "decision": "needs-review",
+        "rationale": "Awaiting human review of the locally displayed answer.",
+        "materialUnsupportedClaims": 0
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { DEFAULT_LIMITS, type AssistantResponse, type InvestigationResult, type TokenUsage } from "../core/types.js";
-import { investigate } from "../core/investigate.js";
+import { investigate, type InvestigationDiagnostic } from "../core/investigate.js";
 import type { LlmProvider } from "../llm/provider.js";
 import { LOCAL_DOCKER_INVESTIGATION_SYSTEM_PROMPT } from "../prompts/local-docker-investigate.js";
 import { createFixtureTools, type FixtureScenario } from "../tools/fixtures.js";
@@ -54,6 +54,7 @@ export interface EvaluationDependencies {
   readonly now?: () => number;
   readonly createFixtureTools?: (scenario: FixtureScenario) => ReturnType<typeof createFixtureTools>;
   readonly review?: (result: InvestigationResult, scenario: EvaluationScenario) => EvaluationReview;
+  readonly onDiagnostic?: (scenario: EvaluationScenario, run: number, event: InvestigationDiagnostic) => void;
 }
 
 /** Runs fixture-only evaluations; this module has no Docker CLI dependency. */
@@ -75,7 +76,10 @@ export async function runFixtureEvaluation(runCount: number, dependencies: Evalu
         provider,
         registry,
         systemPrompt: LOCAL_DOCKER_INVESTIGATION_SYSTEM_PROMPT,
-        limits: DEFAULT_LIMITS
+        limits: DEFAULT_LIMITS,
+        ...(dependencies.onDiagnostic === undefined
+          ? {}
+          : { onDiagnostic: (event: InvestigationDiagnostic) => dependencies.onDiagnostic?.(scenario, run, event) })
       });
       const ended = now();
       const review = dependencies.review?.(result, scenario) ?? {

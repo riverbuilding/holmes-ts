@@ -22,7 +22,12 @@ export interface InvestigationDependencies {
   knownSecrets?: Iterable<string>;
   now?: () => number;
   timers?: InvestigationTimers;
+  onDiagnostic?: (event: InvestigationDiagnostic) => void;
 }
+
+export type InvestigationDiagnostic =
+  | { readonly kind: "model-response"; readonly response: AssistantResponse }
+  | { readonly kind: "tool-result"; readonly call: ToolCall; readonly result: ToolExecutionResult };
 
 /** Injectable timer boundary for deterministic deadline and timeout tests. */
 export interface InvestigationTimers {
@@ -87,6 +92,7 @@ export async function investigate(
       }
       if (modelOutcome.state === "failed") return synthesizeOrPartial("provider-error");
       const response: AssistantResponse = modelOutcome.value;
+      dependencies.onDiagnostic?.({ kind: "model-response", response });
 
       // Do not let a completion that raced cancellation update the transcript.
       const afterModel = stopReason();
@@ -129,6 +135,7 @@ export async function investigate(
           continue;
         }
         const result = toolOutcome.value;
+        dependencies.onDiagnostic?.({ kind: "tool-result", call, result });
         duplicateOutcomes.record(call, result);
         if (result.status === "success") {
           const retained = evidenceCollector.retain({
@@ -266,6 +273,7 @@ export async function investigate(
     modelCalls += 1;
     const synthesis = await runChild((childSignal) => dependencies.provider.respond(messages, [], childSignal), dependencies.limits.modelTimeoutMs);
     if (synthesis.state !== "completed" || synthesis.value.toolCalls.length !== 0) return partial(reason);
+    dependencies.onDiagnostic?.({ kind: "model-response", response: synthesis.value });
 
     // A completed response that raced a stop is not safe to present as final.
     if (stopReason() !== undefined) return partial(reason);

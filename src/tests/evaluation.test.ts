@@ -64,6 +64,22 @@ test("evaluation command validates runs and report destinations before provider 
   assert.throws(() => parseEvaluationArguments(["--runs", "0", "--report", "docs/evaluations/report.json"]), /positive integer/);
   assert.throws(() => parseEvaluationArguments(["--runs", "1", "--report", "outside.json"]), /inside docs\/evaluations/);
   assert.match(validateReportDestination("docs/evaluations/report.json"), /docs\/evaluations\/report\.json$/);
+  assert.equal(parseEvaluationArguments(["--runs", "1", "--report", "docs/evaluations/report.json", "--verbose"]).verbose, true);
+});
+
+test("fixture evaluator exposes model and fixture-tool bodies only through its explicit diagnostic hook", async () => {
+  const diagnostics: string[] = [];
+  await runFixtureEvaluation(1, {
+    provider: new ScenarioProvider(),
+    model: "fixture",
+    review: passingReview,
+    onDiagnostic(scenario, run, event) {
+      diagnostics.push(`${scenario.id}:${run}:${event.kind}`);
+    }
+  });
+
+  assert.ok(diagnostics.some((entry) => entry === "missing-env:1:model-response"));
+  assert.ok(diagnostics.some((entry) => entry === "missing-env:1:tool-result"));
 });
 
 test("report serialization rejects secret-like configured values", () => {

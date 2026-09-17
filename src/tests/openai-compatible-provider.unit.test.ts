@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { OpenAiCompatibleProvider } from "../llm/openai-compatible-provider.js";
+import { chatCompletionsUrl, OpenAiCompatibleProvider } from "../llm/openai-compatible-provider.js";
+
+test("compatible provider derives one chat-completions path from an OpenAI-compatible base URL", () => {
+  assert.equal(chatCompletionsUrl("https://api.groq.com/openai/v1"), "https://api.groq.com/openai/v1/chat/completions");
+  assert.equal(chatCompletionsUrl("https://api.groq.com/openai/v1/"), "https://api.groq.com/openai/v1/chat/completions");
+});
 
 test("compatible provider normalizes complete token usage", async () => {
   const response = await respondWith({ prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 });

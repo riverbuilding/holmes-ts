@@ -66,7 +66,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   }
 }
 
-function chatCompletionsUrl(baseUrl: string | undefined): string {
+export function chatCompletionsUrl(baseUrl: string | undefined): string {
   const normalized = (baseUrl?.trim() || "https://api.openai.com").replace(/\/+$/, "");
   const path = /\/v1$/i.test(normalized) ? "chat/completions" : CHAT_COMPLETIONS_PATH;
   return `${normalized}/${path}`;
