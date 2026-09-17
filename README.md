@@ -4,12 +4,14 @@ A TypeScript port of HolmesGPT's complete local-Docker diagnostic toolset, based
 
 ## Project status
 
-Phase 4's bounded, evidence-safe investigation engine is in place alongside
-the Phase 1 contracts and OpenAI-compatible Chat Completions provider. It can
-investigate through fixtures or one pinned local Docker context using all nine
-read-only Docker tools: `docker_images`, `docker_ps`, `docker_ps_all`,
+The bounded, evidence-safe investigation engine and Phase 5 fixture evaluator
+are available alongside the OpenAI-compatible Chat Completions provider. It
+can investigate through fixtures or one pinned local Docker context using all
+nine read-only Docker tools: `docker_images`, `docker_ps`, `docker_ps_all`,
 `docker_inspect`, `docker_logs`, `docker_top`, `docker_events`,
-`docker_history`, and `docker_diff`.
+`docker_history`, and `docker_diff`. Phase 5 is not release-ready yet: the
+current [fixture evaluation record](docs/evaluations/README.md) retains failed
+provider attempts and needs reviewed passing runs.
 
 ## Investigation engine guarantees
 
@@ -33,7 +35,7 @@ read-only Docker tools: `docker_images`, `docker_ps`, `docker_ps_all`,
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run check
 npm test
 ```
@@ -44,17 +46,16 @@ Run a deterministic fixture investigation without a Docker daemon:
 npm run dev -- ask "Why did checkout exit?" --fixture missing-env
 ```
 
-The deterministic engine, Docker adapter, projection, fixture, and CLI tests
-use scripted providers, in-memory registries, fake processes/timers, and fixed
-observations; they need no Docker daemon. `npm test` also retains the Phase 1
-provider integration suite, which requires `LLM_API_KEY` and network access.
-It uses a real model, sends all nine Docker schemas, returns a mocked tool
-result, and requires a final answer, but does not invoke Docker. It is separate
-from deterministic Docker coverage, Phase 4 live-Docker validation, and the
-Phase 5 real-model fixture evaluation. It defaults to OpenRouter's free-model
-router (`openrouter/free`) at
-`https://openrouter.ai/api/v1`. Set `LLM_MODEL` to a tool-calling-capable model
-if the default route does not support tool calls.
+`npm test` is the deterministic gate: it uses scripted providers, in-memory
+registries, fake processes/timers, and fixed observations. It needs no
+credentials, network, Python, Docker CLI, or Docker daemon.
+
+The external commands are intentionally separate: `npm run test:provider`
+performs the real provider protocol check and requires credentials plus
+network access; `npm run evaluate:fixtures -- --runs 1 --report <path>` sends
+fixed fixture observations to that provider and can incur provider usage. Both
+need `LLM_API_KEY`; use a tool-calling-capable `LLM_MODEL` and compatible
+`LLM_BASE_URL`. Neither command invokes Docker.
 
 ## Current layout
 
@@ -86,6 +87,7 @@ if the default route does not support tool calls.
 - [Phase 4 image and runtime implementation slices](docs/phase-4-implementation-slices.md)
 - [Phase 4 live-Docker validation record](docs/phase-4-live-docker-validation.md)
 - [Phase 5 answer-quality and release-readiness implementation slices](docs/phase-5-implementation-slices.md)
+- [Fixture evaluation workflow and reports](docs/evaluations/README.md)
 - [Quickstart and current availability](docs/quickstart.md)
 - [Upstream Docker port map](docs/upstream-port-map.md)
 - [Security and data handling](docs/security-and-data-handling.md)

@@ -39,6 +39,24 @@ values, diff paths, and other projected fields can still include sensitive or
 host-specific content that was not supplied as a known value; use fixtures or
 sanitize the local environment when that is a concern.
 
+## Fixture evaluation data
+
+`npm run evaluate:fixtures` sends the committed, fixed fixture observations to
+the configured provider. It does not require Python, Docker CLI, a Docker
+daemon, Docker context, or Docker socket, but it does make provider network
+requests and can incur provider usage. Its committed JSON report retains only
+safe reproducibility data, tool/citation summaries, normalized usage when
+available, and reviewer decisions; it excludes API keys, prompts, model prose,
+and evidence bodies. `--verbose` is intentionally diagnostic-only: it can
+write model prose and fixture observations to stderr and must not be redirected
+to a committed file or used with sensitive fixture data.
+
+Fixture safety does not make a live investigation safe to share. Live retained
+evidence follows the redaction and truncation limits above, with the same
+residual risk for unknown secrets and host-specific content. A valid citation
+only shows that an answer refers to retained evidence; it does not make the
+claim true or establish causality.
+
 ## Limits and untrusted content
 
 The engine bounds model/tool operation time, result characters, and total

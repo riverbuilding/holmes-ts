@@ -8,14 +8,17 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
+    "clean": "rm -rf dist",
     "evaluate:fixtures": "npm run build && node dist/evaluation/cli.js",
-    "test": "npm run build && node --test dist/**/*.test.js"
+    "test": "npm run test:deterministic",
+    "test:deterministic": "npm run build && node --test dist/**/*.test.js",
+    "test:provider": "npm run build && node --test dist/tests/openai-compatible-provider.integration.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

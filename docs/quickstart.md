@@ -18,40 +18,47 @@ are untrusted evidence, not instructions or proof of causality.
 
 - Node.js 24 or later.
 - npm.
-- A tool-calling-capable OpenAI-compatible model and its credentials.
+- A tool-calling-capable OpenAI-compatible model and its credentials only for
+  `test:provider`, fixture evaluation, or an investigation.
 - Docker CLI and an accessible local Docker context only for a live
   investigation; fixture investigations do not contact Docker.
 
-`npm test` includes a required authenticated real-model provider integration
-test. It makes OpenAI-compatible Chat Completions requests and therefore
-requires a valid `LLM_API_KEY`; `LLM_MODEL` must name a model that supports
-function/tool calling; and `LLM_BASE_URL` must be that provider's compatible
-base URL. The defaults are `openrouter/free` and
-`https://openrouter.ai/api/v1`. Put local credentials in ignored `.env` or
-inject them through CI secrets—never commit them.
-
-The integration test sends the nine public Docker schemas, requires the model
-to call `docker_ps_all`, returns a mocked tool result, and requires a final
-model answer. It does not contact a Docker daemon or execute any Docker
-command. The same suite separately verifies provider HTTP errors, timeout, and
-caller cancellation against the selected endpoint.
+The defaults are `openrouter/free` and `https://openrouter.ai/api/v1`.
+`LLM_MODEL` must name a model that supports function/tool calling and
+`LLM_BASE_URL` must be that provider's compatible base URL. Put local
+credentials in ignored `.env` or inject them through CI secrets—never commit
+them. The CLI does not load `.env` itself, so source it in the shell running an
+external command.
 
 ## Verify the implementation
 
+From a clean checkout, the deterministic gate needs only Node.js and npm:
+
 ```bash
-npm install
-export LLM_API_KEY=...              # or place it in ignored .env
-export LLM_MODEL=provider/model     # tool-calling capable
-export LLM_BASE_URL=https://provider.example/v1
+npm ci
 npm run check
 npm test
+git diff --check
 ```
 
-Use the provider's real endpoint for this acceptance test; a local HTTP mock
-does not meet the Phase 1 provider-round-trip gate. Deterministic tests do not
-require a Docker daemon. The authenticated provider round trip in `npm test`
-is neither deterministic Docker coverage nor Phase 4 live-Docker validation;
-Phase 5 separately evaluates fixture investigations with a real model.
+It does not require credentials, network access, Python, Docker CLI, or a
+Docker daemon. To run the explicit external provider checks, copy the sample,
+fill the three provider values, and source it only in the current shell:
+
+```bash
+cp .env.example .env
+# Edit .env with LLM_API_KEY, LLM_MODEL, and LLM_BASE_URL.
+set -a; source .env; set +a
+npm run test:provider
+npm run evaluate:fixtures -- --runs 1 --report docs/evaluations/phase-5-fixture-evaluation-YYYY-MM-DD.json
+```
+
+`test:provider` makes real network requests but never contacts Docker. Fixture
+evaluation also makes real network requests and can incur provider usage; it
+runs each of the five fixtures once by default and never starts Docker or
+requires Python. See the [evaluation workflow](evaluations/README.md) before
+using `--verbose`, because its diagnostic transcript can contain model prose
+and fixture observations.
 
 ## Investigation workflow
 
@@ -85,6 +92,13 @@ writes, `docker exec`, custom process options, registry access, unbounded
 streams, or remediation. `--fixture` and `--docker-context` are mutually
 exclusive. `--verbose` reports only safe progress metadata, never raw Docker
 output.
+
+The result begins with `Status: complete` or `Status: partial` and then renders
+`Finding`, `Evidence`, `Retained evidence`, `Next steps`, and `Uncertainty`.
+Citation warnings identify unknown, duplicate, malformed, or absent citations;
+they do not repair the model's claim or establish that a cited claim is true.
+A completed process exit only means the CLI rendered an investigation result.
+Invalid arguments, configuration failures, and startup failures exit nonzero.
 
 ## Fixture versus live Docker
 

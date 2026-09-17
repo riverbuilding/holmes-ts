@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   const arguments_ = parseEvaluationArguments(process.argv.slice(2));
   const config = loadConfig();
   if (arguments_.verbose) {
-    console.info(
+    console.error(
       `LLM configuration ${JSON.stringify({ model: config.provider.model, baseUrl: config.provider.baseUrl, requestUrl: chatCompletionsUrl(config.provider.baseUrl) })}`
     );
   }
@@ -48,8 +48,8 @@ async function main(): Promise<void> {
     onDiagnostic: arguments_.verbose
       ? (scenario, run, event) => {
           const prefix = `[${scenario.id} run ${run}]`;
-          if (event.kind === "model-response") console.info(`${prefix} LLM response ${JSON.stringify(event.response)}`);
-          else console.info(`${prefix} tool ${event.call.name} response ${JSON.stringify(event.result)}`);
+          if (event.kind === "model-response") console.error(`${prefix} LLM response ${JSON.stringify(event.response)}`);
+          else console.error(`${prefix} tool ${event.call.name} response ${JSON.stringify(event.result)}`);
         }
       : undefined
   });
