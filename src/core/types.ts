@@ -166,6 +166,13 @@ export interface CitationValidation {
 export interface AssistantResponse {
   content: string;
   toolCalls: ToolCall[];
+  usage?: TokenUsage;
+}
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 }
 
 export type InvestigationStopReason = "deadline" | "tool-limit" | "model-limit" | "duplicate-only" | "cancelled" | "provider-error";

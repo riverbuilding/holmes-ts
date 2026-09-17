@@ -14,6 +14,7 @@
     "format:check": "prettier --check .",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
+    "evaluate:fixtures": "npm run build && node dist/evaluation/cli.js",
     "test": "npm run build && node --test dist/**/*.test.js"
   },
   "devDependencies": {

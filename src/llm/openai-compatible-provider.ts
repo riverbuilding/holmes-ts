@@ -1,4 +1,13 @@
-import { DEFAULT_LIMITS, ProviderError, type AssistantResponse, type JsonObject, type Message, type ToolCall, type ToolDefinition } from "../core/types.js";
+import {
+  DEFAULT_LIMITS,
+  ProviderError,
+  type AssistantResponse,
+  type JsonObject,
+  type Message,
+  type TokenUsage,
+  type ToolCall,
+  type ToolDefinition
+} from "../core/types.js";
 import type { LlmProvider, ProviderConfig } from "./provider.js";
 
 const CHAT_COMPLETIONS_PATH = "v1/chat/completions";
@@ -96,10 +105,28 @@ function parseResponse(payload: unknown): AssistantResponse {
   if (message.tool_calls !== undefined && !Array.isArray(message.tool_calls)) {
     throw invalidResponse("Provider tool calls are invalid.");
   }
+  const usage = parseUsage(root?.usage);
   return {
     content: typeof message.content === "string" ? message.content : "",
-    toolCalls: (message.tool_calls ?? []).map(parseToolCall)
+    toolCalls: (message.tool_calls ?? []).map(parseToolCall),
+    ...(usage === undefined ? {} : { usage })
   };
+}
+
+function parseUsage(value: unknown): TokenUsage | undefined {
+  const usage = object(value);
+  if (usage === undefined || !isTokenCount(usage.prompt_tokens) || !isTokenCount(usage.completion_tokens) || !isTokenCount(usage.total_tokens)) {
+    return undefined;
+  }
+  return {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens
+  };
+}
+
+function isTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function parseToolCall(value: unknown): ToolCall {
