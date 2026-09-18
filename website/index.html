@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Holmes is an evidence-led local Docker investigator for clear, bounded diagnostics."
+    />
+    <title>Holmes — Docker investigations, with receipts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-glow glow-one"></div>
+    <div class="page-glow glow-two"></div>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Holmes home">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span>holmes<span class="muted">.ts</span></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#guardrails">Guardrails</a>
+        <a href="#get-started">Get started</a>
+      </nav>
+      <a class="header-link" href="https://github.com/riverbuilding/holmes-ts" target="_blank" rel="noreferrer">GitHub <span>↗</span></a>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="eyebrow"><span class="pulse"></span> Local Docker diagnostics</div>
+        <h1>Ask what broke.<br /><em>Keep the receipts.</em></h1>
+        <p class="hero-copy">
+          Holmes investigates your local Docker environment with bounded, read-only tools—then turns observations into cited findings you can trust.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#get-started">Run an investigation <span>→</span></a>
+          <a class="button button-quiet" href="#how-it-works">See the workflow <span>↓</span></a>
+        </div>
+        <p class="hero-note"><span>⌘</span> TypeScript · OpenAI-compatible · local-first</p>
+      </section>
+
+      <section class="terminal-wrap" aria-label="Example Holmes investigation">
+        <div class="terminal">
+          <div class="terminal-top"><div class="traffic"><i></i><i></i><i></i></div><span>holmes / investigation</span><span class="terminal-status">● complete</span></div>
+          <div class="terminal-body">
+            <p class="command"><span>❯</span> holmes ask "Why did checkout exit?" <b>--fixture missing-env</b></p>
+            <div class="terminal-divider"></div>
+            <div class="result-title"><span>STATUS</span> Complete <i>01.82s</i></div>
+            <div class="finding"><span class="label">FINDING</span><p>The <code>checkout</code> container exited because its required <code>STRIPE_SECRET_KEY</code> environment variable was absent.</p></div>
+            <div class="evidence"><span class="label">EVIDENCE</span><p><a href="#e1">[E1]</a> Container state reports exit code 1. <a href="#e2">[E2]</a> Logs identify the missing variable.</p></div>
+            <div class="next"><span class="label">NEXT</span><p>Set <code>STRIPE_SECRET_KEY</code> in the container environment, then restart checkout.</p></div>
+          </div>
+          <div class="evidence-strip"><span id="e1">E1 · docker_inspect</span><span id="e2">E2 · docker_logs</span><span>2 retained observations</span></div>
+        </div>
+        <div class="terminal-caption"><span>One question in</span><span>Evidence-led answer out</span></div>
+      </section>
+
+      <section class="statement">
+        <p>Not an autonomous operator.</p>
+        <p>A careful investigator.</p>
+      </section>
+
+      <section id="how-it-works" class="workflow">
+        <div class="section-intro">
+          <span class="section-kicker">01 / The workflow</span>
+          <h2>From a question<br />to a grounded answer.</h2>
+          <p>Holmes is designed around a simple principle: observations come first, conclusions come second.</p>
+        </div>
+        <ol class="steps">
+          <li><span class="step-number">01</span><div><h3>Investigate</h3><p>Ask a focused question about a pinned local Docker context or a deterministic fixture.</p></div><span class="step-icon">⌕</span></li>
+          <li><span class="step-number">02</span><div><h3>Collect</h3><p>Use a focused toolkit to inspect containers, logs, events, images, processes, history, and filesystem changes.</p></div><span class="step-icon">⊞</span></li>
+          <li><span class="step-number">03</span><div><h3>Explain</h3><p>Receive a finding, next steps, uncertainty, and citations to the exact retained evidence.</p></div><span class="step-icon">↗</span></li>
+        </ol>
+      </section>
+
+      <section id="guardrails" class="guardrails">
+        <div class="guardrail-head"><span class="section-kicker">02 / Built with boundaries</span><h2>Useful because it’s<br /><em>deliberately limited.</em></h2></div>
+        <div class="guardrail-grid">
+          <article><div class="card-icon">◌</div><h3>Read-only by design</h3><p>Holmes investigates. It never runs <code>docker exec</code>, changes containers, or applies a fix on your behalf.</p></article>
+          <article><div class="card-icon">✦</div><h3>Evidence, not raw output</h3><p>Bounded observations receive stable IDs. Conclusions can be checked against the evidence that supports them.</p></article>
+          <article><div class="card-icon">⌁</div><h3>Secrets stay redacted</h3><p>Known secret values are removed before evidence is retained, counted, or returned in an answer.</p></article>
+          <article><div class="card-icon">⌛</div><h3>Bounded at every turn</h3><p>Deadlines, per-operation timeouts, output caps, and duplicate-call suppression keep investigations controlled.</p></article>
+        </div>
+      </section>
+
+      <section class="tools-section">
+        <div><span class="section-kicker">03 / The local Docker toolkit</span><h2>Nine ways to<br />look closer.</h2></div>
+        <div class="tool-cloud" aria-label="Available Docker tools">
+          <span>docker_ps</span><span>docker_ps_all</span><span>docker_inspect</span><span>docker_logs</span><span>docker_events</span><span>docker_top</span><span>docker_images</span><span>docker_history</span><span>docker_diff</span>
+        </div>
+      </section>
+
+      <section id="get-started" class="get-started">
+        <div class="start-copy"><span class="section-kicker">04 / Start investigating</span><h2>Bring a better<br />question to Docker.</h2><p>Start with a fixed scenario, then point Holmes at one pinned local Docker context when you’re ready.</p></div>
+        <div class="install-card">
+          <div class="install-tabs"><span class="active">fixture</span><span>local Docker</span></div>
+          <pre><code><span class="line-dim"># Clone the project, then</span>
+<span class="line-prompt">$</span> npm ci
+<span class="line-prompt">$</span> npm run dev -- ask <span class="line-string">"Why did checkout exit?"</span> \\
+  --fixture missing-env</code></pre>
+          <button class="copy-button" type="button" data-copy="npm ci\nnpm run dev -- ask &quot;Why did checkout exit?&quot; --fixture missing-env">Copy command</button>
+        </div>
+      </section>
+    </main>
+
+    <footer><a class="brand" href="#top"><span class="brand-mark"><i></i><i></i><i></i></span><span>holmes<span class="muted">.ts</span></span></a><p>Evidence-led local Docker diagnostics.</p><a href="https://github.com/riverbuilding/holmes-ts" target="_blank" rel="noreferrer">View source ↗</a></footer>
+    <script src="./script.js"></script>
+  </body>
+</html>
