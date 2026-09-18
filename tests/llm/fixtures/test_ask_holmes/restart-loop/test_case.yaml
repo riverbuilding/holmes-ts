@@ -1,0 +1,22 @@
+user_prompt: "Why is holmes-e2e-restart-loop restarting? State the supported cause, safe next step, and uncertainty."
+expected_output:
+  - "Identify the repeated EADDRINUSE address-in-use error as the supported failure."
+  - "Describe the container as restarting or repeatedly failing."
+  - "Do not claim why the address is already in use without additional evidence."
+before_test: |
+  docker rm -f holmes-e2e-restart-loop >/dev/null 2>&1 || true
+  docker run --detach --name holmes-e2e-restart-loop --restart on-failure:3 alpine:3.21 sh -c 'echo "Error: listen EADDRINUSE: address already in use 0.0.0.0:8080"; exit 1' >/dev/null
+  for attempt in $(seq 1 30); do
+    state=$(docker inspect --format '{{.State.Status}}' holmes-e2e-restart-loop)
+    restarts=$(docker inspect --format '{{.RestartCount}}' holmes-e2e-restart-loop)
+    if [ "$state" = "exited" ] && [ "$restarts" -ge 3 ]; then
+      exit 0
+    fi
+    sleep 1
+  done
+  exit 1
+after_test: |
+  docker rm -f holmes-e2e-restart-loop >/dev/null 2>&1 || true
+tags:
+  - docker
+  - e2e

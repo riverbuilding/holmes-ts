@@ -12,6 +12,8 @@ test("release commands keep deterministic checks separate from provider and fixt
   assert.equal(scripts["test:deterministic"], "npm run build && node --test dist/**/*.test.js");
   assert.equal(scripts["test:provider"], "npm run build && node --test dist/tests/openai-compatible-provider.integration.js");
   assert.equal(scripts["evaluate:fixtures"], "npm run build && node dist/evaluation/cli.js");
+  assert.equal(scripts["evaluate:restart-loop"], "npm run build && node dist/live-evaluation/cli.js");
+  assert.equal(scripts["test:e2e"], "npm run build && RUN_LIVE_DOCKER_E2E=1 node --test dist/tests/restart-loop.e2e.test.js");
 });
 
 test("sample environment contains only blank credential and runtime settings", () => {

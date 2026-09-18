@@ -57,6 +57,17 @@ fixed fixture observations to that provider and can incur provider usage. Both
 need `LLM_API_KEY`; use a tool-calling-capable `LLM_MODEL` and compatible
 `LLM_BASE_URL`. Neither command invokes Docker.
 
+The live restart-loop evaluation follows HolmesGPT's setup → investigate →
+judge → cleanup pattern. It starts a disposable Docker container and makes
+provider requests, so it is explicit and never part of `npm test`:
+
+```bash
+npm run test:e2e
+```
+
+The single case is defined in
+`tests/llm/fixtures/test_ask_holmes/restart-loop/test_case.yaml`.
+
 ## Current layout
 
 - `src/cli.ts` and `src/config.ts`: command parsing and environment validation.
